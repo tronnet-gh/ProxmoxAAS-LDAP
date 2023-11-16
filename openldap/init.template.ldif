@@ -1,0 +1,23 @@
+# people ou
+dn: ou=people,$BASE_DN
+objectClass: organizationalUnit
+ou: people
+
+# group ou
+dn: ou=groups,$BASE_DN
+objectClass: organizationalUnit
+ou: groups
+
+# admin group
+dn: cn=admins,ou=groups,$BASE_DN
+objectClass: groupOfNames
+member: uid=paas,ou=people,$BASE_DN
+cn: admins
+
+# paas user 
+dn: uid=paas,ou=people,$BASE_DN
+objectClass: inetOrgPerson
+cn: paas
+sn: paas
+uid: paas
+userPassword: $PAAS_PASSWD

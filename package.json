@@ -1,0 +1,34 @@
+{
+	"name": "proxmoxaas-ldap",
+	"version": "0.0.1",
+	"description": "LDAP intermediate API for ProxmoxAAS",
+	"main": "src/main.js",
+	"type": "module",
+	"dependencies": {
+		"axios": "^1.5.1",
+		"body-parser": "^1.20.1",
+		"cookie": "^0.5.0",
+		"cookie-parser": "^1.4.6",
+		"cors": "^2.8.5",
+		"express": "^4.18.2",
+		"ldapjs": "^3.0.5",
+		"minimist": "^1.2.8",
+		"morgan": "^1.10.0"
+	},
+	"devDependencies": {
+		"eslint": "^8.43.0",
+		"eslint-config-standard": "^17.1.0",
+		"eslint-plugin-import": "^2.27.5",
+		"eslint-plugin-n": "^16.0.1",
+		"eslint-plugin-promise": "^6.1.1",
+		"body-parser": "^1.20.1",
+		"cookie": "^0.5.0",
+		"cookie-parser": "^1.4.6",
+		"express": "^4.18.2",
+		"minimist": "^1.2.8",
+		"morgan": "^1.10.0"
+	},
+	"scripts": {
+		"lint": "DEBUG=eslint:cli-engine eslint --fix ."
+	}
+}
