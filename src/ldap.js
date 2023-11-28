@@ -44,7 +44,26 @@ export default class LDAP {
 		return await this.#client.search(this.#peopledn, opts);
 	}
 
-	async modUser (bind, uid, attrs) { }
+	async modUser (bind, uid, newAttrs) {
+		const result = await this.#client.bind(bind.dn, bind.password);
+		if (!result.ok) {
+			return result;
+		}
+		const results = [];
+		for (const attr of ["cn", "sn", "userPassword"]) {
+			if (attr in newAttrs) {
+				const change = new ldap.Change({
+					operation: "replace",
+					modification: {
+						type: attr,
+						values: [newAttrs[attr]]
+					}
+				});
+				results.push(await this.#client.modify(`uid=${uid},${this.#peopledn}`, change));
+			}
+		}
+		return results;
+	}
 
 	async delUser (bind, uid) {
 		const result = await this.#client.bind(bind.dn, bind.password);
@@ -63,7 +82,7 @@ export default class LDAP {
 		const groupDN = `cn=${gid},${this.#groupsdn}`;
 		const entry = {
 			objectClass: "groupOfNames",
-			member: "",
+			member: attrs && attrs.member ? attrs.member : "",
 			cn: gid
 		};
 		return await this.#client.add(groupDN, entry);
@@ -79,10 +98,34 @@ export default class LDAP {
 	}
 
 	async addUserToGroup (bind, uid, gid) {
-
+		const result = await this.#client.bind(bind.dn, bind.password);
+		if (!result.ok) {
+			return result;
+		}
+		const change = new ldap.Change({
+			operation: "add",
+			modification: {
+				type: "member",
+				values: [`uid=${uid},${this.#peopledn}`]
+			}
+		});
+		return await this.#client.modify(`cn=${gid},${this.#groupsdn}`, change);
 	}
 
-	async delUserFromGroup (bind, uid, gid) { }
+	async delUserFromGroup (bind, uid, gid) {
+		const result = await this.#client.bind(bind.dn, bind.password);
+		if (!result.ok) {
+			return result;
+		}
+		const change = new ldap.Change({
+			operation: "delete",
+			modification: {
+				type: "member",
+				values: [`uid=${uid},${this.#peopledn}`]
+			}
+		});
+		return await this.#client.modify(`cn=${gid},${this.#groupsdn}`, change);
+	}
 }
 
 class LDAPJS_CLIENT_ASYNC_WRAPPER {
@@ -101,10 +144,10 @@ class LDAPJS_CLIENT_ASYNC_WRAPPER {
 		return new Promise((resolve) => {
 			this.#client.bind(dn, password, (err) => {
 				if (err) {
-					resolve({ ok: false, error: err });
+					resolve({ op: `bind ${dn}`, ok: false, error: err });
 				}
 				else {
-					resolve({ ok: true });
+					resolve({ op: `bind ${dn}`, ok: true });
 				}
 			});
 		});
@@ -114,10 +157,10 @@ class LDAPJS_CLIENT_ASYNC_WRAPPER {
 		return new Promise((resolve) => {
 			this.#client.add(dn, entry, (err) => {
 				if (err) {
-					resolve({ ok: false, error: err });
+					resolve({ op: `add ${dn}`, ok: false, error: err });
 				}
 				else {
-					resolve({ ok: true });
+					resolve({ op: `add ${dn}`, ok: true });
 				}
 			});
 		});
@@ -127,7 +170,7 @@ class LDAPJS_CLIENT_ASYNC_WRAPPER {
 		return new Promise((resolve) => {
 			this.#client.search(base, options, (err, res) => {
 				if (err) {
-					return resolve({ ok: false, error: err });
+					return resolve({ op: `search ${base}`, ok: false, error: err });
 				}
 				const results = { ok: false, status: 1, message: "", entries: [] };
 				res.on("searchRequest", (searchRequest) => { });
@@ -155,10 +198,10 @@ class LDAPJS_CLIENT_ASYNC_WRAPPER {
 		return new Promise((resolve) => {
 			this.#client.modify(name, changes, (err) => {
 				if (err) {
-					resolve({ ok: false, error: err });
+					resolve({ op: `modify ${name}`, ok: false, error: err });
 				}
 				else {
-					resolve({ ok: true });
+					resolve({ op: `modify ${name}`, ok: true });
 				}
 			});
 		});
@@ -168,10 +211,10 @@ class LDAPJS_CLIENT_ASYNC_WRAPPER {
 		return new Promise((resolve) => {
 			this.#client.del(dn, (err) => {
 				if (err) {
-					resolve({ ok: false, error: err });
+					resolve({ op: `del ${dn}`, ok: false, error: err });
 				}
 				else {
-					resolve({ ok: true });
+					resolve({ op: `del ${dn}`, ok: true });
 				}
 			});
 		});
