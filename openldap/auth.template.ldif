@@ -5,7 +5,7 @@ delete: olcAccess
 -
 add: olcAccess
 olcAccess: {0}to attrs=userPassword
-    by group/groupOfNames/member="cn=admins,ou=groups,$BASE_DN" write
+    by group/groupOfNames/member="cn=admins,ou=groups,$BASE_DN" =wcdx
     by self write 
     by anonymous auth 
     by * none
