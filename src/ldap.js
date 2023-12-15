@@ -16,6 +16,13 @@ export default class LDAP {
 		this.#groupsdn = `ou=groups,${basedn}`;
 	}
 
+	createUserBind (uid, password) {
+		return {
+			dn: `uid=${uid},${this.#peopledn}`,
+			password
+		};
+	}
+
 	async addUser (bind, uid, attrs) {
 		const logger = new LDAP_MULTIOP_LOGGER(`add ${uid}`);
 		await this.#client.bind(bind.dn, bind.password, logger);
@@ -23,6 +30,16 @@ export default class LDAP {
 			return logger;
 		}
 		const userDN = `uid=${uid},${this.#peopledn}`;
+		if (!attrs.cn || !attrs.sn || !attrs.userPassword) {
+			return {
+				ok: false,
+				error: {
+					code: 100,
+					name: "UndefinedAttributeValueError",
+					message: "Undefined Attribute Value"
+				}
+			};
+		}
 		const entry = {
 			objectClass: "inetOrgPerson",
 			cn: attrs.cn,
@@ -39,7 +56,9 @@ export default class LDAP {
 		if (!bindResult.ok) {
 			return bindResult;
 		}
-		return await this.#client.search(`uid=${uid},${this.#peopledn}`, {});
+		const result = await this.#client.search(`uid=${uid},${this.#peopledn}`, {});
+		result.user = result.entries[0]; // assume there should only be 1 entry
+		return result;
 	}
 
 	async modUser (bind, uid, newAttrs) {
@@ -49,7 +68,7 @@ export default class LDAP {
 			return logger;
 		}
 		for (const attr of ["cn", "sn", "userPassword"]) {
-			if (attr in newAttrs) {
+			if (attr in newAttrs && newAttrs[attr]) { // attr should exist and not be undefined or null
 				const change = new ldap.Change({
 					operation: "replace",
 					modification: {
@@ -232,7 +251,7 @@ class LDAPJS_CLIENT_ASYNC_WRAPPER {
 
 	#parseError (err) {
 		if (err) {
-			return {code: err.code, name: err.name, message: err.message};
+			return { code: err.code, name: err.name, message: err.message };
 		}
 		else {
 			return null;
