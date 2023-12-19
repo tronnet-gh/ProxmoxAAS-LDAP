@@ -52,6 +52,13 @@ app.get("/echo", (req, res) => {
 
 /**
  * POST - create a new user or modify existing user attributes
+ * request:
+ * - userid: user id
+ * - cn: common name
+ * - sn: surname
+ * - userpassword: user password
+ * - binduser: bind user id
+ * - bindpass: bind user password
  */
 app.post("/users/:userid", async (req, res) => {
 	const params = {
@@ -88,6 +95,10 @@ app.post("/users/:userid", async (req, res) => {
 
 /**
  * GET - get user attributes
+ * request:
+ * - userid: user id
+ * - binduser: bind user id
+ * - bindpass: bind user password
  */
 app.get("/users/:userid", async (req, res) => {
 	const params = {
@@ -112,6 +123,10 @@ app.get("/users/:userid", async (req, res) => {
 
 /**
  * DELETE - delete user
+ * request:
+ * - userid: user id
+ * - binduser: bind user id
+ * - bindpass: bind user password
  */
 app.delete("/users/:userid", async (req, res) => {
 	const params = {
@@ -125,12 +140,77 @@ app.delete("/users/:userid", async (req, res) => {
 	});
 });
 
-app.post("/groups/:groupid", (req, res) => {});
+/**
+ * POST - create a new group
+ * request:
+ * - groupid: group id
+ * - binduser: bind user id
+ * - bindpass: bind user password
+ */
+app.post("/groups/:groupid", async (req, res) => {
+	const params = {
+		groupid: req.params.groupid,
+		bind: ldap.createUserBind(req.body.binduser, req.body.bindpass)
+	}
+	const result = await ldap.addGroup(params.bind, groupid);
+	res.send({
+		ok: result.ok,
+		error: result.error
+	})
+});
 
-app.get("/groups/:groupid", (req, res) => {});
+/**
+ * GET - get group attributes including members
+ * request:
+ * - groupid: group id
+ * - binduser: bind user id
+ * - bindpass: bind user password
+ */
+app.get("/groups/:groupid", async (req, res) => {
+	const params = {
+		groupid: req.params.groupid,
+		bind: ldap.createUserBind(req.body.binduser, req.body.bindpass)
+	}
+	const result = await ldap.getGroup(params.bind, groupid);
+	res.send({
+		ok: result.ok,
+		error: result.error
+	})
+});
 
-app.delete("/groups/:groupid", (req, res) => {});
+/**
+ * DELETE - delete group
+ * request:
+ * - groupid: group id
+ * - binduser: bind user id
+ * - bindpass: bind user password
+ */
+app.delete("/groups/:groupid", async (req, res) => {
+	const params = {
+		groupid: req.params.groupid,
+		bind: ldap.createUserBind(req.body.binduser, req.body.bindpass)
+	}
+	const result = await ldap.delGroup(params.bind, groupid);
+	res.send({
+		ok: result.ok,
+		error: result.error
+	})
+});
 
-app.get("/groups/:groupid/members", (req, res) => {});
+/**
+ * GET - get group members only 
+ * request:
+ * - groupid: group id
+ * - binduser: bind user id
+ * - bindpass: bind user password
+ */
+app.get("/groups/:groupid/members", async (req, res) => {});
 
-app.post("/groups/:groupid/members", (req, res) => {});
+/**
+ * POST - add member(s) to group
+ * - groupid: group id
+ * - members: new list of members
+ * - binduser: bind user id
+ * - bindpass: bind user password
+ */
+app.post("/groups/:groupid/members", async (req, res) => {});
