@@ -23,6 +23,18 @@ export default class LDAP {
 		};
 	}
 
+	async getAllUsers (bind) {
+		const bindResult = await this.#client.bind(bind.dn, bind.password);
+		if (!bindResult.ok) {
+			return bindResult;
+		}
+		const result = await this.#client.search(this.#peopledn, {
+			scope: "one"
+		});
+		result.users = result.entries;
+		return result;
+	}
+
 	async addUser (bind, uid, attrs) {
 		const logger = new LDAP_MULTIOP_LOGGER(`add ${uid}`);
 		const bindResult = await this.#client.bind(bind.dn, bind.password, logger);
@@ -108,6 +120,18 @@ export default class LDAP {
 			await this.#client.modify(element.dn, change, logger);
 		}
 		return logger;
+	}
+
+	async getAllGroups (bind) {
+		const bindResult = await this.#client.bind(bind.dn, bind.password);
+		if (!bindResult.ok) {
+			return bindResult;
+		}
+		const result = await this.#client.search(this.#groupsdn, {
+			scope: "one"
+		});
+		result.groups = result.entries;
+		return result;
 	}
 
 	async addGroup (bind, gid) {
