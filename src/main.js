@@ -50,6 +50,18 @@ app.get("/echo", (req, res) => {
 	res.status(200).send({ body: req.body, cookies: req.cookies });
 });
 
+app.get("/users", async (req, res) => {
+	const params = {
+		bind: ldap.createUserBind(req.body.binduser, req.body.bindpass)
+	};
+	const result = await ldap.getAllUsers(params.bind);
+	res.send({
+		ok: result.ok,
+		error: result.error,
+		users: result.users
+	});
+});
+
 /**
  * POST - create a new user or modify existing user attributes
  * request:
@@ -137,6 +149,18 @@ app.delete("/users/:userid", async (req, res) => {
 	res.send({
 		ok: result.ok,
 		error: result.error
+	});
+});
+
+app.get("/groups", async (req, res) => {
+	const params = {
+		bind: ldap.createUserBind(req.body.binduser, req.body.bindpass)
+	};
+	const result = await ldap.getAllGroups(params.bind);
+	res.send({
+		ok: result.ok,
+		error: result.error,
+		groups: result.groups
 	});
 });
 
