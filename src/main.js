@@ -2,6 +2,7 @@ import express from "express";
 import bodyParser from "body-parser";
 import cookieParser from "cookie-parser";
 import morgan from "morgan";
+import session from "express-session";
 
 import LDAP from "./ldap.js";
 import _config from "./config.js";
@@ -21,12 +22,19 @@ global.argv = parseArgs(process.argv.slice(2), {
 global.package = _package(global.argv.package);
 global.config = _config(global.argv.configPath);
 
-const ldap = new LDAP(global.argv.ldapURL, global.config.basedn);
+const LDAPSessions = {};
 
 const app = express();
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(cookieParser());
 app.use(morgan("combined"));
+app.use(session({
+	secret: global.config.sessionSecretKey,
+	name: global.config.sessionCookieName,
+	cookie: global.config.sessionCookie,
+	resave: false,
+	saveUninitialized: true
+}));
 
 app.listen(global.argv.listenPort, () => {
 	console.log(`proxmoxaas-api v${global.package.version} listening on port ${global.argv.listenPort}`);
@@ -50,16 +58,53 @@ app.get("/echo", (req, res) => {
 	res.status(200).send({ body: req.body, cookies: req.cookies });
 });
 
-app.get("/users", async (req, res) => {
+/**
+ * POST - get session ticket by authenticating using user id and password
+ */
+app.post("/ticket", async (req, res) => {
 	const params = {
-		bind: ldap.createUserBind(req.body.binduser, req.body.bindpass)
+		uid: req.body.uid,
+		password: req.body.password
 	};
-	const result = await ldap.getAllUsers(params.bind);
-	res.send({
-		ok: result.ok,
-		error: result.error,
-		users: result.users
-	});
+	const newLDAPSession = new LDAP(global.argv.ldapURL, global.config.basedn);
+	const bindResult = await newLDAPSession.bindUser(params.uid, params.password);
+	if (bindResult.ok) {
+		LDAPSessions[req.session.id] = newLDAPSession;
+		res.status(200).send({ auth: true });
+	}
+	else {
+		res.send({
+			ok: bindResult.ok,
+			error: bindResult.error
+		});
+	}
+});
+
+/**
+ * DELETE - invalidate and remove session ticket
+ */
+app.delete("/ticket", async (req, res) => {
+	req.session.ldap = null;
+	req.session.destroy();
+	res.send({ auth: false });
+});
+
+/**
+ * GET - get user attributes for all users
+ */
+app.get("/users", async (req, res) => {
+	if (req.session.id in LDAPSessions) {
+		const ldap = LDAPSessions[req.session.id];
+		const result = await ldap.getAllUsers();
+		res.send({
+			ok: result.ok,
+			error: result.error,
+			users: result.users
+		});
+	}
+	else {
+		res.status(403).send({ auth: false });
+	}
 });
 
 /**
@@ -69,39 +114,42 @@ app.get("/users", async (req, res) => {
  * - cn: common name
  * - sn: surname
  * - userpassword: user password
- * - binduser: bind user id
- * - bindpass: bind user password
  */
 app.post("/users/:userid", async (req, res) => {
 	const params = {
 		userid: req.params.userid,
-		bind: ldap.createUserBind(req.body.binduser, req.body.bindpass),
 		userattrs: {
 			cn: req.body.usercn,
 			sn: req.body.usersn,
 			userPassword: req.body.userpassword
 		}
 	};
-	const checkUser = await ldap.getUser(params.bind, params.userid);
-	if (!checkUser.ok && checkUser.error.code === 32) { // the user does not exist, create new user
-		const result = await ldap.addUser(params.bind, params.userid, params.userattrs);
-		res.send({
-			ok: result.ok,
-			error: result.error
-		});
+	if (req.session.id in LDAPSessions) {
+		const ldap = LDAPSessions[req.session.id];
+		const checkUser = await ldap.getUser(params.userid);
+		if (!checkUser.ok && checkUser.error.code === 32) { // the user does not exist, create new user
+			const result = await ldap.addUser(params.userid, params.userattrs);
+			res.send({
+				ok: result.ok,
+				error: result.error
+			});
+		}
+		else if (checkUser.ok) { // the user does exist, modify the user entries
+			const result = await ldap.modUser(params.userid, params.userattrs);
+			res.send({
+				ok: result.ok,
+				error: result.error
+			});
+		}
+		else { // some other error happened
+			res.send({
+				ok: checkUser.ok,
+				error: checkUser.error
+			});
+		}
 	}
-	else if (checkUser.ok) { // the user does exist, modify the user entries
-		const result = await ldap.modUser(params.bind, params.userid, params.userattrs);
-		res.send({
-			ok: result.ok,
-			error: result.error
-		});
-	}
-	else { // some other error happened
-		res.send({
-			ok: checkUser.ok,
-			error: checkUser.error
-		});
+	else {
+		res.status(403).send({ auth: false });
 	}
 });
 
@@ -109,27 +157,30 @@ app.post("/users/:userid", async (req, res) => {
  * GET - get user attributes
  * request:
  * - userid: user id
- * - binduser: bind user id
- * - bindpass: bind user password
  */
 app.get("/users/:userid", async (req, res) => {
 	const params = {
-		userid: req.params.userid,
-		bind: ldap.createUserBind(req.body.binduser, req.body.bindpass)
+		userid: req.params.userid
 	};
-	const result = await ldap.getUser(params.bind, params.userid);
-	if (result.ok) {
-		res.send({
-			ok: result.ok,
-			error: result.error,
-			user: result.user
-		});
+	if (req.session.id in LDAPSessions) {
+		const ldap = LDAPSessions[req.session.id];
+		const result = await ldap.getUser(params.userid);
+		if (result.ok) {
+			res.send({
+				ok: result.ok,
+				error: result.error,
+				user: result.user
+			});
+		}
+		else {
+			res.send({
+				ok: result.ok,
+				error: result.error
+			});
+		}
 	}
 	else {
-		res.send({
-			ok: result.ok,
-			error: result.error
-		});
+		res.status(403).send({ auth: false });
 	}
 });
 
@@ -137,77 +188,93 @@ app.get("/users/:userid", async (req, res) => {
  * DELETE - delete user
  * request:
  * - userid: user id
- * - binduser: bind user id
- * - bindpass: bind user password
  */
 app.delete("/users/:userid", async (req, res) => {
 	const params = {
-		userid: req.params.userid,
-		bind: ldap.createUserBind(req.body.binduser, req.body.bindpass)
+		userid: req.params.userid
 	};
-	const result = await ldap.delUser(params.bind, params.userid);
-	res.send({
-		ok: result.ok,
-		error: result.error
-	});
+	if (req.session.id in LDAPSessions) {
+		const ldap = LDAPSessions[req.session.id];
+		const result = await ldap.delUser(params.userid);
+		res.send({
+			ok: result.ok,
+			error: result.error
+		});
+	}
+	else {
+		res.status(403).send({ auth: false });
+	}
 });
 
+/**
+ * GET - get group attributes including members for all groups
+ * request:
+ */
 app.get("/groups", async (req, res) => {
-	const params = {
-		bind: ldap.createUserBind(req.body.binduser, req.body.bindpass)
-	};
-	const result = await ldap.getAllGroups(params.bind);
-	res.send({
-		ok: result.ok,
-		error: result.error,
-		groups: result.groups
-	});
+	if (req.session.id in LDAPSessions) {
+		const ldap = LDAPSessions[req.session.id];
+		const result = await ldap.getAllGroups();
+		res.send({
+			ok: result.ok,
+			error: result.error,
+			groups: result.groups
+		});
+	}
+	else {
+		res.status(403).send({ auth: false });
+	}
 });
 
 /**
  * POST - create a new group
  * request:
  * - groupid: group id
- * - binduser: bind user id
- * - bindpass: bind user password
  */
 app.post("/groups/:groupid", async (req, res) => {
 	const params = {
-		groupid: req.params.groupid,
-		bind: ldap.createUserBind(req.body.binduser, req.body.bindpass)
+		groupid: req.params.groupid
 	};
-	const result = await ldap.addGroup(params.bind, params.groupid);
-	res.send({
-		ok: result.ok,
-		error: result.error
-	});
+	if (req.session.id in LDAPSessions) {
+		const ldap = LDAPSessions[req.session.id];
+		const result = await ldap.addGroup(params.groupid);
+		res.send({
+			ok: result.ok,
+			error: result.error
+		});
+	}
+	else {
+		res.status(403).send({ auth: false });
+	}
 });
 
 /**
  * GET - get group attributes including members
  * request:
  * - groupid: group id
- * - binduser: bind user id
- * - bindpass: bind user password
  */
 app.get("/groups/:groupid", async (req, res) => {
 	const params = {
-		groupid: req.params.groupid,
-		bind: ldap.createUserBind(req.body.binduser, req.body.bindpass)
+		groupid: req.params.groupid
 	};
-	const result = await ldap.getGroup(params.bind, params.groupid);
-	if (result.ok) {
-		res.send({
-			ok: result.ok,
-			error: result.error,
-			group: result.group
-		});
+	if (req.session.id in LDAPSessions) {
+		const ldap = LDAPSessions[req.session.id];
+		const result = await ldap.getGroup(params.groupid);
+		if (result.ok) {
+			res.send({
+				ok: result.ok,
+				error: result.error,
+				group: result.group
+			});
+		}
+		else {
+			res.send({
+				ok: result.ok,
+				error: result.error
+			});
+		}
 	}
 	else {
-		res.send({
-			ok: result.ok,
-			error: result.error
-		});
+		res.status(403).send({ auth: false });
 	}
 });
 
@@ -215,19 +282,22 @@ app.get("/groups/:groupid", async (req, res) => {
  * DELETE - delete group
  * request:
  * - groupid: group id
- * - binduser: bind user id
- * - bindpass: bind user password
  */
 app.delete("/groups/:groupid", async (req, res) => {
 	const params = {
-		groupid: req.params.groupid,
-		bind: ldap.createUserBind(req.body.binduser, req.body.bindpass)
+		groupid: req.params.groupid
 	};
-	const result = await ldap.delGroup(params.bind, params.groupid);
-	res.send({
-		ok: result.ok,
-		error: result.error
-	});
+	if (req.session.id in LDAPSessions) {
+		const ldap = LDAPSessions[req.session.id];
+		const result = await ldap.delGroup(params.groupid);
+		res.send({
+			ok: result.ok,
+			error: result.error
+		});
+	}
+	else {
+		res.status(403).send({ auth: false });
+	}
 });
 
 /**
@@ -235,38 +305,44 @@ app.delete("/groups/:groupid", async (req, res) => {
  * request:
  * - groupid: group id
  * - userid: user id
- * - binduser: bind user id
- * - bindpass: bind user password
  */
 app.post("/groups/:groupid/members/:userid", async (req, res) => {
 	const params = {
 		groupid: req.params.groupid,
-		userid: req.params.userid,
-		bind: ldap.createUserBind(req.body.binduser, req.body.bindpass)
+		userid: req.params.userid
 	};
-	const result = await ldap.addUserToGroup(params.bind, params.userid, params.groupid);
-	res.send({
-		ok: result.ok,
-		error: result.error
-	});
+	if (req.session.id in LDAPSessions) {
+		const ldap = LDAPSessions[req.session.id];
+		const result = await ldap.addUserToGroup(params.userid, params.groupid);
+		res.send({
+			ok: result.ok,
+			error: result.error
+		});
+	}
+	else {
+		res.status(403).send({ auth: false });
+	}
 });
 
 /**
  * DELETE - remove a member from the group
  * - groupid: group id
  * - userid: user id
- * - binduser: bind user id
- * - bindpass: bind user password
  */
 app.delete("/groups/:groupid/members/:userid", async (req, res) => {
 	const params = {
 		groupid: req.params.groupid,
-		userid: req.params.userid,
-		bind: ldap.createUserBind(req.body.binduser, req.body.bindpass)
+		userid: req.params.userid
 	};
-	const result = await ldap.delUserFromGroup(params.bind, params.userid, params.groupid);
-	res.send({
-		ok: result.ok,
-		error: result.error
-	});
+	if (req.session.id in LDAPSessions) {
+		const ldap = LDAPSessions[req.session.id];
+		const result = await ldap.delUserFromGroup(params.userid, params.groupid);
+		res.send({
+			ok: result.ok,
+			error: result.error
+		});
+	}
+	else {
+		res.status(403).send({ auth: false });
+	}
 });

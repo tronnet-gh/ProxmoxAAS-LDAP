@@ -1,3 +1,10 @@
 {
-    "basedn": "dc=example,dc=com"
+    "basedn": "dc=example,dc=com",
+    "sessionSecretKey": "super secret key",
+    "sessionCookie": {
+        "path": "/",
+        "httpOnly": true,
+        "secure": false,
+        "maxAge": 7200000
+    }
 }
