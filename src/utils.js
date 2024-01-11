@@ -1,11 +1,12 @@
 import { readFileSync } from "fs";
 import { exit } from "process";
-export default (path) => {
+
+export function readJSONFile (path) {
 	try {
 		return JSON.parse(readFileSync(path));
 	}
 	catch (e) {
-		console.log(`Error: ${path} was not found.`);
+		console.log(`error: ${path} was not found.`);
 		exit(1);
 	}
 };
