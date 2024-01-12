@@ -5,7 +5,7 @@ import morgan from "morgan";
 import session from "express-session";
 import parseArgs from "minimist";
 
-import * as utils from "./utils.js"
+import * as utils from "./utils.js";
 import LDAP from "./ldap.js";
 
 global.argv = parseArgs(process.argv.slice(2), {
