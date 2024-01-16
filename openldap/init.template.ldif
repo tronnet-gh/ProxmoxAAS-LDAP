@@ -15,9 +15,9 @@ member: uid=paas,ou=people,$BASE_DN
 cn: admins
 
 # paas user 
-dn: uid=paas,ou=people,$BASE_DN
+dn: uid=$ADMIN_ID,ou=people,$BASE_DN
 objectClass: inetOrgPerson
-cn: paas
-sn: paas
-uid: paas
-userPassword: $PAAS_PASSWD
+cn: $ADMIN_CN
+sn: $ADMIN_SN
+uid: $ADMIN_ID
+userPassword: $ADMIN_PASSWD
