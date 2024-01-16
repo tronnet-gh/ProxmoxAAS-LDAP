@@ -70,7 +70,7 @@ app.post("/ticket", async (req, res) => {
 		res.status(200).send({ auth: true });
 	}
 	else {
-		res.send({
+		res.status(403).send({
 			ok: bindResult.ok,
 			error: bindResult.error
 		});
