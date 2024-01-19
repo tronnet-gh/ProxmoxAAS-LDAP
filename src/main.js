@@ -83,6 +83,8 @@ app.post("/ticket", async (req, res) => {
 app.delete("/ticket", async (req, res) => {
 	req.session.ldap = null;
 	req.session.destroy();
+	const expire = new Date(0);
+	res.cookie(global.config.sessionCookieName, "", { expires: expire });
 	res.send({ auth: false });
 });
 

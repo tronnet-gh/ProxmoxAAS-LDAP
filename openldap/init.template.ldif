@@ -11,7 +11,7 @@ ou: groups
 # admin group
 dn: cn=admins,ou=groups,$BASE_DN
 objectClass: groupOfNames
-member: uid=paas,ou=people,$BASE_DN
+member: uid=$ADMIN_ID,ou=people,$BASE_DN
 cn: admins
 
 # paas user 
