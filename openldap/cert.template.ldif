@@ -1,9 +1,0 @@
-dn: cn=config
-replace: olcTLSCACertificateFile
-olcTLSCACertificateFile: $CA_FILE
--
-replace: olcTLSCertificateFile
-olcTLSCertificateFile: $CERT_FILE
--
-replace: olcTLSCertificateKeyFile
-olcTLSCertificateKeyFile: $KEY_FILE
