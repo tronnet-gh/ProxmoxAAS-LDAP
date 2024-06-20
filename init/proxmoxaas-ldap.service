@@ -2,8 +2,8 @@
 Description=proxmoxaas-ldap
 After=network.target
 [Service]
-WorkingDirectory=/<path to dir>/ProxmoxAAS-LDAP/
-ExecStart=/<path to dir>/ProxmoxAAS-LDAP/start.sh
+WorkingDirectory=/<path to dir>
+ExecStart=/<path to dir>/proxmoxaas-ldap
 Restart=always
 RestartSec=10
 Type=simple
