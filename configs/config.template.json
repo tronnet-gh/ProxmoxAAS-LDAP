@@ -1,5 +1,5 @@
 {
-    "listenPort": 8082,
+    "listenPort": 80,
     "ldapURL": "ldap://localhost",
     "basedn": "dc=example,dc=com",
     "sessionSecretKey": "super secret key",
