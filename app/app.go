@@ -15,6 +15,7 @@ import (
 )
 
 var LDAPSessions map[string]*LDAPClient
+var APIVersion = "1.0.0"
 
 func Run() {
 	gob.Register(LDAPClient{})
@@ -37,6 +38,10 @@ func Run() {
 	router.Use(sessions.Sessions(config.SessionCookieName, store))
 
 	LDAPSessions = make(map[string]*LDAPClient)
+
+	router.GET("/version", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"version": APIVersion})
+	})
 
 	router.POST("/ticket", func(c *gin.Context) {
 		var body Login
