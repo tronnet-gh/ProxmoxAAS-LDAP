@@ -8,6 +8,6 @@
         "path": "/",
         "httpOnly": true,
         "secure": false,
-        "maxAge": 7200000
+        "maxAge": 7200
     }
 }

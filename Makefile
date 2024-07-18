@@ -1,5 +1,5 @@
 build: clean
-	go build -ldflags="-s -w" -o dist/ .
+	CGO_ENABLED=0 go build -ldflags="-s -w" -o dist/ .
 
 test: clean
 	go run .
