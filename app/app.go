@@ -15,7 +15,7 @@ import (
 )
 
 var LDAPSessions map[string]*LDAPClient
-var APIVersion = "1.0.0"
+var APIVersion = "1.0.1"
 
 func Run() {
 	gob.Register(LDAPClient{})
