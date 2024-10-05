@@ -15,7 +15,7 @@ import (
 )
 
 var LDAPSessions map[string]*LDAPClient
-var APIVersion = "1.0.1"
+var APIVersion = "1.0.2"
 
 func Run() {
 	gob.Register(LDAPClient{})
@@ -122,18 +122,22 @@ func Run() {
 			return
 		}
 
-		var body User
-		if err := c.ShouldBind(&body); err != nil { // bad request from binding
-			c.JSON(http.StatusBadRequest, gin.H{"auth": false, "error": err.Error()})
-			return
-		}
-
 		// check if user already exists
 		status, res := LDAPSession.GetUser(c.Param("userid"))
 		if status != 200 && ldap.IsErrorWithCode(res["error"].(error), ldap.LDAPResultNoSuchObject) { // user does not already exist, create new user
+			var body UserRequired                       // all user attributes required for new users
+			if err := c.ShouldBind(&body); err != nil { // attempt to bind user data
+				c.JSON(http.StatusBadRequest, gin.H{"auth": false, "error": err.Error()})
+				return
+			}
 			status, res = LDAPSession.AddUser(c.Param("userid"), body)
 			c.JSON(status, res)
 		} else { // user already exists, attempt to modify user
+			var body UserOptional                       // all user attributes optional for new users
+			if err := c.ShouldBind(&body); err != nil { // attempt to bind user data
+				c.JSON(http.StatusBadRequest, gin.H{"auth": false, "error": err.Error()})
+				return
+			}
 			status, res = LDAPSession.ModUser(c.Param("userid"), body)
 			c.JSON(status, res)
 		}
@@ -231,12 +235,12 @@ func Run() {
 			return
 		}
 
-		// check if user already exists
+		// check if group already exists
 		status, res := LDAPSession.GetGroup(c.Param("groupid"))
-		if status != 200 && ldap.IsErrorWithCode(res["error"].(error), ldap.LDAPResultNoSuchObject) { // user does not already exist, create new user
+		if status != 200 && ldap.IsErrorWithCode(res["error"].(error), ldap.LDAPResultNoSuchObject) { // group does not already exist, create new group
 			status, res = LDAPSession.AddGroup(c.Param("groupid"), body)
 			c.JSON(status, res)
-		} else { // user already exists, attempt to modify user
+		} else { // group already exists, attempt to modify group
 			status, res = LDAPSession.ModGroup(c.Param("groupid"), body)
 			c.JSON(status, res)
 		}
