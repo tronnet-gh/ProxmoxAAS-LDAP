@@ -113,12 +113,14 @@ func LDAPGroupToGin(group LDAPGroup) gin.H {
 type UserOptional struct { // add or modify user body struct
 	CN           string `form:"cn"`
 	SN           string `form:"sn"`
+	Mail         string `form:"mail"`
 	UserPassword string `form:"userpassword"`
 }
 
 type UserRequired struct { // add or modify user body struct
 	CN           string `form:"cn" binding:"required"`
 	SN           string `form:"sn" binding:"required"`
+	Mail         string `form:"mail" binding:"required"`
 	UserPassword string `form:"userpassword" binding:"required"`
 }
 
