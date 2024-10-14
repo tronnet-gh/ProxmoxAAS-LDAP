@@ -2,7 +2,6 @@ package app
 
 import (
 	"encoding/json"
-	"log"
 	"os"
 
 	"github.com/gin-gonic/gin"
@@ -23,17 +22,17 @@ type Config struct {
 	}
 }
 
-func GetConfig(configPath string) Config {
+func GetConfig(configPath string) (Config, error) {
 	content, err := os.ReadFile(configPath)
 	if err != nil {
-		log.Fatal("Error when opening config file: ", err)
+		return Config{}, err
 	}
 	var config Config
 	err = json.Unmarshal(content, &config)
 	if err != nil {
-		log.Fatal("Error during parsing config file: ", err)
+		return Config{}, err
 	}
-	return config
+	return config, nil
 }
 
 type Login struct { // login body struct
@@ -125,4 +124,19 @@ type UserRequired struct { // add or modify user body struct
 }
 
 type Group struct { // add or modify group body struct
+}
+
+func HandleResponse(response gin.H) gin.H {
+	if response["error"] != nil {
+		err := response["error"].(error)
+		LDAPerr := err.(*ldap.Error)
+		response["error"] = gin.H{
+			"code":    LDAPerr.ResultCode,
+			"result":  ldap.LDAPResultCodeMap[LDAPerr.ResultCode],
+			"message": LDAPerr.Err.Error(),
+		}
+		return response
+	} else {
+		return response
+	}
 }

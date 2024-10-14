@@ -1,6 +1,7 @@
 package app
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 
@@ -96,8 +97,11 @@ func (l LDAPClient) GetUser(uid string) (int, gin.H) {
 func (l LDAPClient) AddUser(uid string, user UserRequired) (int, gin.H) {
 	if user.CN == "" || user.SN == "" || user.UserPassword == "" || user.Mail == "" {
 		return http.StatusBadRequest, gin.H{
-			"ok":    false,
-			"error": "Missing one of required fields: cn, sn, mail, userpassword",
+			"ok": false,
+			"error": ldap.NewError(
+				ldap.LDAPResultUnwillingToPerform,
+				errors.New("missing one of required fields: cn, sn, mail, userpassword"),
+			),
 		}
 	}
 
@@ -128,8 +132,11 @@ func (l LDAPClient) AddUser(uid string, user UserRequired) (int, gin.H) {
 func (l LDAPClient) ModUser(uid string, user UserOptional) (int, gin.H) {
 	if user.CN == "" && user.SN == "" && user.UserPassword == "" && user.Mail == "" {
 		return http.StatusBadRequest, gin.H{
-			"ok":    false,
-			"error": "Requires one of fields: cn, sn, mail, userpassword",
+			"ok": false,
+			"error": ldap.NewError(
+				ldap.LDAPResultUnwillingToPerform,
+				errors.New("requires one of fields: cn, sn, mail, userpassword"),
+			),
 		}
 	}
 
