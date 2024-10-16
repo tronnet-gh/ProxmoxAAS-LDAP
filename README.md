@@ -28,7 +28,7 @@ ProxmoxAAS LDAP provides a simple API for managing users and groups in a simplif
 
 ### Installation
 
-1. Download `proxmoxaas-ldap` binary and `template.config.json` file from [releases](releases)
+1. Download `proxmoxaas-ldap` binary and `template.config.json` file from [releases](https://git.tronnet.net/tronnet/ProxmoxAAS-LDAP/releases)
 2. Rename `template.config.json` to `config.json` and modify:
     - ldapURL: url to the ldap server ie. `ldap://ldap.domain.net`
     - baseDN: base DN ie. `dc=domain,dc=net`
