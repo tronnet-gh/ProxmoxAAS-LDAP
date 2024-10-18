@@ -1,6 +1,7 @@
 package app
 
 import (
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"net/http"
@@ -20,6 +21,17 @@ type LDAPClient struct {
 // returns a new LDAPClient from the config
 func NewLDAPClient(config Config) (*LDAPClient, error) {
 	LDAPConn, err := ldap.DialURL(config.LdapURL)
+	if err != nil {
+		return nil, err
+	}
+
+	if config.StartTLS {
+		err = LDAPConn.StartTLS(&tls.Config{InsecureSkipVerify: true})
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	return &LDAPClient{
 		client:   LDAPConn,
 		basedn:   config.BaseDN,

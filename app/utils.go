@@ -11,6 +11,7 @@ import (
 type Config struct {
 	ListenPort        int    `json:"listenPort"`
 	LdapURL           string `json:"ldapURL"`
+	StartTLS          bool   `json:"startTLS"`
 	BaseDN            string `json:"baseDN"`
 	SessionSecretKey  string `json:"sessionSecretKey"`
 	SessionCookieName string `json:"sessionCookieName"`
