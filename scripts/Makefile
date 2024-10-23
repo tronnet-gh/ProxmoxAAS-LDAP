@@ -1,4 +1,4 @@
-.PHONY: dev-init
+.PHONY: prerequisites dev-init dev-reinit
 
 prerequisites:
 	@echo "=================== Installing Prerequisites ==================="
