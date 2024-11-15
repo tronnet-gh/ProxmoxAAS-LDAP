@@ -30,9 +30,16 @@ ProxmoxAAS LDAP provides a simple API for managing users and groups in a simplif
 
 1. Download `proxmoxaas-ldap` binary and `template.config.json` file from [releases](https://git.tronnet.net/tronnet/ProxmoxAAS-LDAP/releases)
 2. Rename `template.config.json` to `config.json` and modify:
+    - listenPort: port for PAAS-LDAP to bind and listen on 
     - ldapURL: url to the ldap server ie. `ldap://ldap.domain.net`
-    - baseDN: base DN ie. `dc=domain,dc=net`
-    - sessionSecretKey: random value used to randomize cookie values, replace with any sufficiently large random string
+    - startTLS: true if backend LDAP supports StartTLS
+    - basedn: base DN ie. `dc=domain,dc=net`
+    - sessionCookieName: name of the session cookie
+    - sessionCookie: specific cookie properties
+        - path: cookie path
+        - httpOnly: cookie http-only
+        - secure: cookie secure
+        - maxAge: cookie max-age
 3. Run the binary
 
 ## Building and Testing from Source
@@ -50,4 +57,4 @@ Building requires the go toolchain. Testing requires the go toolchain, make, and
 1. Clone the repository
 2. Run `go get` to get requirements
 3. Run `make dev-init` to install test requirements including openldap (slapd), ldap-utils, debconf-utils
-4. Run `make tests` to run all tests
+4. Run `make test` to run all tests
