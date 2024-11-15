@@ -1,6 +1,7 @@
 package app
 
 import (
+	"crypto/rand"
 	"encoding/gob"
 	"flag"
 	"log"
@@ -15,7 +16,7 @@ import (
 )
 
 var LDAPSessions map[string]*LDAPClient
-var AppVersion = "1.0.5"
+var AppVersion = "1.0.6"
 var APIVersion = "1.0.4"
 
 func Run() {
@@ -28,13 +29,20 @@ func Run() {
 
 	config, err := GetConfig(*configPath)
 	if err != nil {
-		log.Fatal("Error when reading config file: ", err)
+		log.Fatalf("Error when reading config file: %s\n", err)
 	}
 	log.Printf("Read in config from %s\n", *configPath)
 
+	secretKey := make([]byte, 256)
+	n, err := rand.Read(secretKey)
+	if err != nil {
+		log.Fatalf("Error when generating session secret key: %s\n", err.Error())
+	}
+	log.Printf("Generated session secret key of length %d\n", n)
+
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.Default()
-	store := cookie.NewStore([]byte(config.SessionSecretKey))
+	store := cookie.NewStore(secretKey)
 	store.Options(sessions.Options{
 		Path:     config.SessionCookie.Path,
 		HttpOnly: config.SessionCookie.HttpOnly,
@@ -310,5 +318,8 @@ func Run() {
 
 	log.Printf("Starting LDAP API on port %s\n", strconv.Itoa(config.ListenPort))
 
-	router.Run("0.0.0.0:" + strconv.Itoa(config.ListenPort))
+	err = router.Run("0.0.0.0:" + strconv.Itoa(config.ListenPort))
+	if err != nil {
+		log.Fatalf("Error starting router: %s", err.Error())
+	}
 }

@@ -13,7 +13,6 @@ type Config struct {
 	LdapURL           string `json:"ldapURL"`
 	StartTLS          bool   `json:"startTLS"`
 	BaseDN            string `json:"baseDN"`
-	SessionSecretKey  string `json:"sessionSecretKey"`
 	SessionCookieName string `json:"sessionCookieName"`
 	SessionCookie     struct {
 		Path     string `json:"path"`

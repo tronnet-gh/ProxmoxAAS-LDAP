@@ -18,7 +18,6 @@ func TestConfig_ValidPath(t *testing.T) {
 	AssertEquals(t, "config.ListenPort", config.ListenPort, 80)
 	AssertEquals(t, "config.LdapURL", config.LdapURL, "ldap://localhost")
 	AssertEquals(t, "config.BaseDN", config.BaseDN, "dc=test,dc=paasldap")
-	AssertEquals(t, "config.SessionSecretKey", config.SessionSecretKey, "test")
 	AssertEquals(t, "config.SessionCookieName", config.SessionCookieName, "PAASLDAPAuthTicket")
 	AssertEquals(t, "config.SessionCookie.Path", config.SessionCookie.Path, "/")
 	AssertEquals(t, "config.SessionCookie.HttpOnly", config.SessionCookie.HttpOnly, true)
