@@ -17,9 +17,9 @@ export default class LDAP {
 	}
 
 	async addUser (bind, uid, attrs) {
-		const result = await this.#client.bind(bind.dn, bind.password);
-		if (!result.ok) {
-			return result;
+		const bindResult = await this.#client.bind(bind.dn, bind.password);
+		if (!bindResult.ok) {
+			return bindResult;
 		}
 		const userDN = `uid=${uid},${this.#peopledn}`;
 		const entry = {
@@ -29,27 +29,24 @@ export default class LDAP {
 			uid,
 			userPassword: attrs.userPassword
 		};
-		return await this.#client.add(userDN, entry);
+		const addResult = await this.#client.add(userDN, entry);
+		return { op: `add ${uid}`, ok: addResult.ok, error: addResult.error };
 	}
 
 	async getUser (bind, uid) {
-		const result = await this.#client.bind(bind.dn, bind.password);
-		if (!result.ok) {
-			return result;
+		const bindResult = await this.#client.bind(bind.dn, bind.password);
+		if (!bindResult.ok) {
+			return bindResult;
 		}
-		const opts = {
-			filter: `(uid=${uid})`,
-			scope: "sub"
-		};
-		return await this.#client.search(this.#peopledn, opts);
+		return await this.#client.search(`uid=${uid},${this.#peopledn}`, {});
 	}
 
 	async modUser (bind, uid, newAttrs) {
-		const result = await this.#client.bind(bind.dn, bind.password);
-		if (!result.ok) {
-			return result;
+		const bindResult = await this.#client.bind(bind.dn, bind.password);
+		if (!bindResult.ok) {
+			return bindResult;
 		}
-		const results = [];
+		const subops = [bindResult];
 		for (const attr of ["cn", "sn", "userPassword"]) {
 			if (attr in newAttrs) {
 				const change = new ldap.Change({
@@ -59,25 +56,57 @@ export default class LDAP {
 						values: [newAttrs[attr]]
 					}
 				});
-				results.push(await this.#client.modify(`uid=${uid},${this.#peopledn}`, change));
+				subops.push(await this.#client.modify(`uid=${uid},${this.#peopledn}`, change));
 			}
 		}
-		return results;
+		return { op: `modify ${uid}`, ok: !subops.some((e) => !e.ok), error: subops.find((e) => !e.ok) || null, subops };
 	}
 
 	async delUser (bind, uid) {
-		const result = await this.#client.bind(bind.dn, bind.password);
-		if (!result.ok) {
-			return result;
+		const bindResult = await this.#client.bind(bind.dn, bind.password);
+		if (!bindResult.ok) {
+			return bindResult;
 		}
 		const userDN = `uid=${uid},${this.#peopledn}`;
-		return await this.#client.del(userDN);
+		const delResult = await this.#client.del(userDN);
+		const groups = await this.#client.search(this.#groupsdn, {
+			scope: "one",
+			filter: `(member=uid=${uid},${this.#peopledn})`
+		});
+		if (!groups.ok) {
+			return { op: `del ${uid}`, ok: groups.ok, error: groups.error, subops: [bindResult, delResult, groups]}
+		}
+		const groupsubops = [];
+		for (const element of groups.entries) {
+			let change = null;
+			if (element.attributes.member.length === 1) {
+				change = new ldap.Change({
+					operation: "replace",
+					modification: {
+						type: "member",
+						values: [""]
+					}
+				});
+			}
+			else {
+				change = new ldap.Change({
+					operation: "delete",
+					modification: {
+						type: "member",
+						values: [`uid=${uid},${this.#peopledn}`]
+					}
+				});
+			}
+			const delResult = await this.#client.modify(element.dn, change);
+			groupsubops.push(delResult);
+		}
+		return { op: `del ${uid}`, ok: delResult.ok, error: delResult.error, subops: [bindResult, delResult, groups].concat(groupsubops) };
 	}
 
 	async addGroup (bind, gid, attrs) {
-		const result = await this.#client.bind(bind.dn, bind.password);
-		if (!result.ok) {
-			return result;
+		const bindResult = await this.#client.bind(bind.dn, bind.password);
+		if (!bindResult.ok) {
+			return bindResult;
 		}
 		const groupDN = `cn=${gid},${this.#groupsdn}`;
 		const entry = {
@@ -85,37 +114,72 @@ export default class LDAP {
 			member: attrs && attrs.member ? attrs.member : "",
 			cn: gid
 		};
-		return await this.#client.add(groupDN, entry);
+		const addResult = await this.#client.add(groupDN, entry);
+		return { op: `add ${gid}`, ok: addResult.ok, error: addResult.error, subops: [bindResult, addResult] };
+	}
+
+	async getGroup (bind, gid) {
+		const bindResult = await this.#client.bind(bind.dn, bind.password);
+		if (!bindResult.ok) {
+			return bindResult;
+		}
+		return await this.#client.search(`cn=${gid},${this.#groupsdn}`, {});
 	}
 
 	async delGroup (bind, gid) {
-		const result = await this.#client.bind(bind.dn, bind.password);
-		if (!result.ok) {
-			return result;
+		const bindResult = await this.#client.bind(bind.dn, bind.password);
+		if (!bindResult.ok) {
+			return bindResult;
 		}
 		const groupDN = `cn=${gid},${this.#groupsdn}`;
-		return await this.#client.del(groupDN);
+		const delResult = await this.#client.del(groupDN);
+		return { op: `del ${gid}`, ok: delResult.ok, error: delResult.error, subops: [bindResult, delResult] };
 	}
 
 	async addUserToGroup (bind, uid, gid) {
-		const result = await this.#client.bind(bind.dn, bind.password);
-		if (!result.ok) {
-			return result;
+		const bindResult = await this.#client.bind(bind.dn, bind.password);
+		if (!bindResult.ok) {
+			return bindResult;
 		}
-		const change = new ldap.Change({
-			operation: "add",
-			modification: {
-				type: "member",
-				values: [`uid=${uid},${this.#peopledn}`]
+		const checkGroupEntry = await this.#client.search(`cn=${gid},${this.#groupsdn}`, {});
+		if (checkGroupEntry.ok) {
+			// add the user
+			const change = new ldap.Change({
+				operation: "add",
+				modification: {
+					type: "member",
+					values: [`uid=${uid},${this.#peopledn}`]
+				}
+			});
+			const addResult = await this.#client.modify(`cn=${gid},${this.#groupsdn}`, change);
+			if (!addResult.ok) {
+				return addResult;
 			}
-		});
-		return await this.#client.modify(`cn=${gid},${this.#groupsdn}`, change);
+			// check if there is a blank entry in the group
+			const groupEntry = checkGroupEntry.entries[0];
+			if (groupEntry.attributes.member.includes("")) {
+				// delete the blank user
+				const change = new ldap.Change({
+					operation: "delete",
+					modification: {
+						type: "member",
+						values: [""]
+					}
+				});
+				const fixResult = await this.#client.modify(`cn=${gid},${this.#groupsdn}`, change);
+				return { op: `add ${uid} to ${gid}`, ok: addResult.ok && fixResult.ok, error: addResult.error ? addResult.error : fixResult.error, subops: [bindResult, addResult, fixResult] };
+			}
+			return { op: `add ${uid} to ${gid}`, ok: true, error: null, subops: [bindResult, addResult] };
+		}
+		else {
+			return { op: `add ${uid} to ${gid}`, ok: false, error: `${gid} does not exist`, subops: [bindResult] };
+		}
 	}
 
 	async delUserFromGroup (bind, uid, gid) {
-		const result = await this.#client.bind(bind.dn, bind.password);
-		if (!result.ok) {
-			return result;
+		const bindResult = await this.#client.bind(bind.dn, bind.password);
+		if (!bindResult.ok) {
+			return bindResult;
 		}
 		const change = new ldap.Change({
 			operation: "delete",
@@ -124,7 +188,12 @@ export default class LDAP {
 				values: [`uid=${uid},${this.#peopledn}`]
 			}
 		});
-		return await this.#client.modify(`cn=${gid},${this.#groupsdn}`, change);
+		const delResult = await this.#client.modify(`cn=${gid},${this.#groupsdn}`, change);
+		return { op: `del ${uid} from ${gid}`, ok: delResult.ok, error: delResult.error, subops: [bindResult, delResult] };
+	}
+
+	async search (base, opts) {
+		return await this.#client.search(base, opts);
 	}
 }
 
@@ -147,7 +216,7 @@ class LDAPJS_CLIENT_ASYNC_WRAPPER {
 					resolve({ op: `bind ${dn}`, ok: false, error: err });
 				}
 				else {
-					resolve({ op: `bind ${dn}`, ok: true });
+					resolve({ op: `bind ${dn}`, ok: true, error: null });
 				}
 			});
 		});
@@ -160,7 +229,7 @@ class LDAPJS_CLIENT_ASYNC_WRAPPER {
 					resolve({ op: `add ${dn}`, ok: false, error: err });
 				}
 				else {
-					resolve({ op: `add ${dn}`, ok: true });
+					resolve({ op: `add ${dn}`, ok: true, error: null });
 				}
 			});
 		});
@@ -172,10 +241,14 @@ class LDAPJS_CLIENT_ASYNC_WRAPPER {
 				if (err) {
 					return resolve({ op: `search ${base}`, ok: false, error: err });
 				}
-				const results = { ok: false, status: 1, message: "", entries: [] };
+				const results = { op: `search ${base}`, ok: false, error: null, status: 1, message: "", entries: [] };
 				res.on("searchRequest", (searchRequest) => { });
 				res.on("searchEntry", (entry) => {
-					results.entries.push({ dn: entry.pojo.objectName, attributes: entry.pojo.attributes });
+					const attributes = {};
+					for (const element of entry.pojo.attributes) {
+						attributes[element.type] = element.values;
+					}
+					results.entries.push({ dn: entry.pojo.objectName, attributes });
 				});
 				res.on("searchReference", (referral) => { });
 				res.on("error", (error) => {
@@ -198,10 +271,10 @@ class LDAPJS_CLIENT_ASYNC_WRAPPER {
 		return new Promise((resolve) => {
 			this.#client.modify(name, changes, (err) => {
 				if (err) {
-					resolve({ op: `modify ${name}`, ok: false, error: err });
+					resolve({ op: `modify ${name} ${changes.operation} ${changes.modification.type}`, ok: false, error: err });
 				}
 				else {
-					resolve({ op: `modify ${name}`, ok: true });
+					resolve({ op: `modify ${name} ${changes.operation} ${changes.modification.type}`, ok: true, error: null });
 				}
 			});
 		});
@@ -214,7 +287,7 @@ class LDAPJS_CLIENT_ASYNC_WRAPPER {
 					resolve({ op: `del ${dn}`, ok: false, error: err });
 				}
 				else {
-					resolve({ op: `del ${dn}`, ok: true });
+					resolve({ op: `del ${dn}`, ok: true, error: null });
 				}
 			});
 		});
