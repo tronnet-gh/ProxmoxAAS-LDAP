@@ -21,6 +21,7 @@ var APIVersion = "1.0.4"
 
 func Run() {
 	gob.Register(LDAPClient{})
+	gin.SetMode(gin.ReleaseMode)
 
 	log.Printf("Starting ProxmoxAAS-LDAP version %s\n", APIVersion)
 
@@ -40,7 +41,6 @@ func Run() {
 	}
 	log.Printf("Generated session secret key of length %d\n", n)
 
-	gin.SetMode(gin.ReleaseMode)
 	router := gin.Default()
 	store := cookie.NewStore(secretKey)
 	store.Options(sessions.Options{

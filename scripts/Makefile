@@ -2,7 +2,7 @@
 
 prerequisites:
 	@echo "=================== Installing Prerequisites ==================="
-	apt install debconf-utils slapd ldap-utils sudo gettext
+	apt install debconf-utils slapd ldap-utils sudo gettext gnutls-bin
 	git clone https://git.tronnet.net/tronnet/open-ldap-setup
 	cd open-ldap-setup/; bash gencert.sh < ../gencert.conf;
 	rm -rf open-ldap-setup/
