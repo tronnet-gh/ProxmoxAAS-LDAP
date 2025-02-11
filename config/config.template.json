@@ -1,6 +1,9 @@
 {
+    "listenPort": 8082,
+    "ldapURL": "ldap://localhost",
     "basedn": "dc=example,dc=com",
     "sessionSecretKey": "super secret key",
+    "sessionCookieName": "PAASLDAPAuthTicket",
     "sessionCookie": {
         "path": "/",
         "httpOnly": true,
