@@ -278,7 +278,22 @@ func (l LDAPClient) AddGroup(gid string, group Group) (int, gin.H) {
 }
 
 func (l LDAPClient) ModGroup(gid string, group Group) (int, gin.H) {
-	return 200, gin.H{
+	modifyRequest := ldap.NewModifyRequest(
+		fmt.Sprintf("cn=%s,%s", gid, l.groupsdn),
+		nil,
+	)
+
+	modifyRequest.Replace("cn", []string{gid})
+
+	err := l.client.Modify(modifyRequest)
+	if err != nil {
+		return http.StatusBadRequest, gin.H{
+			"ok":    false,
+			"error": err,
+		}
+	}
+
+	return http.StatusOK, gin.H{
 		"ok":    true,
 		"error": nil,
 	}
