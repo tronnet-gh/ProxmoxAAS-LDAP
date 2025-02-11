@@ -1,10 +1,10 @@
-.PHONY: build tests clean dev-init dev-reinit
+.PHONY: build test clean dev-init dev-reinit
 
 build: clean
 	@echo "======================== Building Binary ======================="
 	CGO_ENABLED=0 go build -ldflags="-s -w" -v -o dist/ .
 
-tests: dev-reinit
+test: dev-reinit
 	@echo "======================== Running Tests ========================="
 	go test -v -cover -coverpkg=./app/ -coverprofile coverage ./test/
 	@echo "======================= Coverage Report ========================"
