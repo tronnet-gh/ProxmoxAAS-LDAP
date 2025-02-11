@@ -17,6 +17,7 @@ cn: admins
 # paas user 
 dn: uid=$ADMIN_ID,ou=people,$BASE_DN
 objectClass: inetOrgPerson
+mail: $ADMIN_EMAIL
 cn: $ADMIN_CN
 sn: $ADMIN_SN
 uid: $ADMIN_ID
