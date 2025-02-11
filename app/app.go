@@ -15,6 +15,7 @@ import (
 )
 
 var LDAPSessions map[string]*LDAPClient
+var AppVersion = "1.0.5"
 var APIVersion = "1.0.4"
 
 func Run() {
@@ -47,7 +48,7 @@ func Run() {
 	LDAPSessions = make(map[string]*LDAPClient)
 
 	router.GET("/version", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"version": APIVersion})
+		c.JSON(http.StatusOK, gin.H{"version": APIVersion, "app-version": AppVersion})
 	})
 
 	router.POST("/ticket", func(c *gin.Context) {
@@ -93,7 +94,7 @@ func Run() {
 		uuid := SessionUUID.(string)
 		delete(LDAPSessions, uuid)
 		session.Options(sessions.Options{MaxAge: -1}) // set max age to -1 so it is deleted
-		_ = session.Save()
+		session.Save()
 		c.JSON(http.StatusUnauthorized, gin.H{"auth": false})
 	})
 
