@@ -34,8 +34,8 @@ func (l LDAPClient) GetAllUsers() (int, gin.H) {
 	searchRequest := ldap.NewSearchRequest(
 		l.peopledn, // The base dn to search
 		ldap.ScopeWholeSubtree, ldap.NeverDerefAliases, 0, 0, false,
-		"(&(objectClass=inetOrgPerson))",          // The filter to apply
-		[]string{"dn", "cn", "sn", "mail", "uid"}, // A list attributes to retrieve
+		"(&(objectClass=inetOrgPerson))",                      // The filter to apply
+		[]string{"dn", "cn", "sn", "mail", "uid", "memberOf"}, // A list attributes to retrieve
 		nil,
 	)
 
@@ -53,10 +53,11 @@ func (l LDAPClient) GetAllUsers() (int, gin.H) {
 		results = append(results, gin.H{
 			"dn": entry.DN,
 			"attributes": gin.H{
-				"cn":   entry.GetAttributeValue("cn"),
-				"sn":   entry.GetAttributeValue("sn"),
-				"mail": entry.GetAttributeValue("mail"),
-				"uid":  entry.GetAttributeValue("uid"),
+				"cn":       entry.GetAttributeValue("cn"),
+				"sn":       entry.GetAttributeValue("sn"),
+				"mail":     entry.GetAttributeValue("mail"),
+				"uid":      entry.GetAttributeValue("uid"),
+				"memberOf": entry.GetAttributeValues("memberOf"),
 			},
 		})
 	}
@@ -103,8 +104,8 @@ func (l LDAPClient) GetUser(uid string) (int, gin.H) {
 	searchRequest := ldap.NewSearchRequest( //  setup search for user by uid
 		fmt.Sprintf("uid=%s,%s", uid, l.peopledn), // The base dn to search
 		ldap.ScopeWholeSubtree, ldap.NeverDerefAliases, 0, 0, false,
-		"(&(objectClass=inetOrgPerson))",          // The filter to apply
-		[]string{"dn", "cn", "sn", "mail", "uid"}, // A list attributes to retrieve
+		"(&(objectClass=inetOrgPerson))",                      // The filter to apply
+		[]string{"dn", "cn", "sn", "mail", "uid", "memberOf"}, // A list attributes to retrieve
 		nil,
 	)
 
@@ -120,10 +121,11 @@ func (l LDAPClient) GetUser(uid string) (int, gin.H) {
 	result := gin.H{
 		"dn": entry.DN,
 		"attributes": gin.H{
-			"cn":   entry.GetAttributeValue("cn"),
-			"sn":   entry.GetAttributeValue("sn"),
-			"mail": entry.GetAttributeValue("mail"),
-			"uid":  entry.GetAttributeValue("uid"),
+			"cn":       entry.GetAttributeValue("cn"),
+			"sn":       entry.GetAttributeValue("sn"),
+			"mail":     entry.GetAttributeValue("mail"),
+			"uid":      entry.GetAttributeValue("uid"),
+			"memberOf": entry.GetAttributeValues("memberOf"),
 		},
 	}
 
