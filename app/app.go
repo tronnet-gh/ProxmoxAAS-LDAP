@@ -15,7 +15,7 @@ import (
 )
 
 var LDAPSessions map[string]*LDAPClient
-var APIVersion = "1.0.3"
+var APIVersion = "1.0.4"
 
 func Run() {
 	gob.Register(LDAPClient{})
@@ -25,7 +25,10 @@ func Run() {
 	configPath := flag.String("config", "config.json", "path to config.json file")
 	flag.Parse()
 
-	config := GetConfig(*configPath)
+	config, err := GetConfig(*configPath)
+	if err != nil {
+		log.Fatal("Error when reading config file: ", err)
+	}
 	log.Printf("Read in config from %s\n", *configPath)
 
 	gin.SetMode(gin.ReleaseMode)
@@ -109,7 +112,7 @@ func Run() {
 		}
 
 		status, res := LDAPSession.GetAllUsers()
-		c.JSON(status, res)
+		c.JSON(status, HandleResponse(res))
 	})
 
 	router.POST("/users/:userid", func(c *gin.Context) {
@@ -135,7 +138,7 @@ func Run() {
 				return
 			}
 			status, res = LDAPSession.AddUser(c.Param("userid"), body)
-			c.JSON(status, res)
+			c.JSON(status, HandleResponse(res))
 		} else { // user already exists, attempt to modify user
 			var body UserOptional                       // all user attributes optional for new users
 			if err := c.ShouldBind(&body); err != nil { // attempt to bind user data
@@ -143,7 +146,7 @@ func Run() {
 				return
 			}
 			status, res = LDAPSession.ModUser(c.Param("userid"), body)
-			c.JSON(status, res)
+			c.JSON(status, HandleResponse(res))
 		}
 	})
 
@@ -162,7 +165,7 @@ func Run() {
 		}
 
 		status, res := LDAPSession.GetUser(c.Param("userid"))
-		c.JSON(status, res)
+		c.JSON(status, HandleResponse(res))
 	})
 
 	router.DELETE("/users/:userid", func(c *gin.Context) {
@@ -180,7 +183,7 @@ func Run() {
 		}
 
 		status, res := LDAPSession.DelUser(c.Param("userid"))
-		c.JSON(status, res)
+		c.JSON(status, HandleResponse(res))
 	})
 
 	router.GET("/groups", func(c *gin.Context) {
@@ -198,7 +201,7 @@ func Run() {
 		}
 
 		status, res := LDAPSession.GetAllGroups()
-		c.JSON(status, res)
+		c.JSON(status, HandleResponse(res))
 	})
 
 	router.GET("/groups/:groupid", func(c *gin.Context) {
@@ -216,7 +219,7 @@ func Run() {
 		}
 
 		status, res := LDAPSession.GetGroup(c.Param("groupid"))
-		c.JSON(status, res)
+		c.JSON(status, HandleResponse(res))
 	})
 
 	router.POST("/groups/:groupid", func(c *gin.Context) {
@@ -243,10 +246,10 @@ func Run() {
 		status, res := LDAPSession.GetGroup(c.Param("groupid"))
 		if status != 200 && ldap.IsErrorWithCode(res["error"].(error), ldap.LDAPResultNoSuchObject) { // group does not already exist, create new group
 			status, res = LDAPSession.AddGroup(c.Param("groupid"), body)
-			c.JSON(status, res)
+			c.JSON(status, HandleResponse(res))
 		} else { // group already exists, attempt to modify group
 			status, res = LDAPSession.ModGroup(c.Param("groupid"), body)
-			c.JSON(status, res)
+			c.JSON(status, HandleResponse(res))
 		}
 	})
 
@@ -265,7 +268,7 @@ func Run() {
 		}
 
 		status, res := LDAPSession.DelGroup(c.Param("groupid"))
-		c.JSON(status, res)
+		c.JSON(status, HandleResponse(res))
 	})
 
 	router.POST("/groups/:groupid/members/:userid", func(c *gin.Context) {
@@ -283,7 +286,7 @@ func Run() {
 		}
 
 		status, res := LDAPSession.AddUserToGroup(c.Param("userid"), c.Param("groupid"))
-		c.JSON(status, res)
+		c.JSON(status, HandleResponse(res))
 	})
 
 	router.DELETE("/groups/:groupid/members/:userid", func(c *gin.Context) {
@@ -301,7 +304,7 @@ func Run() {
 		}
 
 		status, res := LDAPSession.DelUserFromGroup(c.Param("userid"), c.Param("groupid"))
-		c.JSON(status, res)
+		c.JSON(status, HandleResponse(res))
 	})
 
 	log.Printf("Starting LDAP API on port %s\n", strconv.Itoa(config.ListenPort))
