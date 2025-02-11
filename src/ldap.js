@@ -16,18 +16,11 @@ export default class LDAP {
 		this.#groupsdn = `ou=groups,${basedn}`;
 	}
 
-	createUserBind (uid, password) {
-		return {
-			dn: `uid=${uid},${this.#peopledn}`,
-			password
-		};
+	async bindUser (uid, password) {
+		return await this.#client.bind(`uid=${uid},${this.#peopledn}`, password);
 	}
 
-	async getAllUsers (bind) {
-		const bindResult = await this.#client.bind(bind.dn, bind.password);
-		if (!bindResult.ok) {
-			return bindResult;
-		}
+	async getAllUsers () {
 		const result = await this.#client.search(this.#peopledn, {
 			scope: "one"
 		});
@@ -35,12 +28,7 @@ export default class LDAP {
 		return result;
 	}
 
-	async addUser (bind, uid, attrs) {
-		const logger = new LDAP_MULTIOP_LOGGER(`add ${uid}`);
-		const bindResult = await this.#client.bind(bind.dn, bind.password, logger);
-		if (!bindResult.ok) {
-			return bindResult;
-		}
+	async addUser (uid, attrs) {
 		const userDN = `uid=${uid},${this.#peopledn}`;
 		if (!attrs.cn || !attrs.sn || !attrs.userPassword) {
 			return {
@@ -59,26 +47,17 @@ export default class LDAP {
 			uid,
 			userPassword: attrs.userPassword
 		};
-		await this.#client.add(userDN, entry, logger);
-		return logger;
+		return await this.#client.add(userDN, entry);
 	}
 
-	async getUser (bind, uid) {
-		const bindResult = await this.#client.bind(bind.dn, bind.password);
-		if (!bindResult.ok) {
-			return bindResult;
-		}
+	async getUser (uid) {
 		const result = await this.#client.search(`uid=${uid},${this.#peopledn}`, {});
 		result.user = result.entries[0]; // assume there should only be 1 entry
 		return result;
 	}
 
-	async modUser (bind, uid, newAttrs) {
+	async modUser (uid, newAttrs) {
 		const logger = new LDAP_MULTIOP_LOGGER(`modify ${uid}`);
-		const bindResult = await this.#client.bind(bind.dn, bind.password, logger);
-		if (!bindResult.ok) {
-			return bindResult;
-		}
 		for (const attr of ["cn", "sn", "userPassword"]) {
 			if (attr in newAttrs && newAttrs[attr]) { // attr should exist and not be undefined or null
 				const change = new ldap.Change({
@@ -94,12 +73,8 @@ export default class LDAP {
 		return logger;
 	}
 
-	async delUser (bind, uid) {
+	async delUser (uid) {
 		const logger = new LDAP_MULTIOP_LOGGER(`del ${uid}`);
-		const bindResult = await this.#client.bind(bind.dn, bind.password, logger);
-		if (!bindResult.ok) {
-			return bindResult;
-		}
 		const userDN = `uid=${uid},${this.#peopledn}`;
 		await this.#client.del(userDN, logger);
 		const groups = await this.#client.search(this.#groupsdn, {
@@ -122,11 +97,7 @@ export default class LDAP {
 		return logger;
 	}
 
-	async getAllGroups (bind) {
-		const bindResult = await this.#client.bind(bind.dn, bind.password);
-		if (!bindResult.ok) {
-			return bindResult;
-		}
+	async getAllGroups () {
 		const result = await this.#client.search(this.#groupsdn, {
 			scope: "one"
 		});
@@ -134,49 +105,28 @@ export default class LDAP {
 		return result;
 	}
 
-	async addGroup (bind, gid) {
-		const logger = new LDAP_MULTIOP_LOGGER(`add ${gid}`);
-		const bindResult = await this.#client.bind(bind.dn, bind.password, logger);
-		if (!bindResult.ok) {
-			return bindResult;
-		}
+	async addGroup (gid) {
 		const groupDN = `cn=${gid},${this.#groupsdn}`;
 		const entry = {
 			objectClass: "groupOfNames",
 			member: "",
 			cn: gid
 		};
-		await this.#client.add(groupDN, entry, logger);
-		return logger;
+		return await this.#client.add(groupDN, entry);
 	}
 
-	async getGroup (bind, gid) {
-		const bindResult = await this.#client.bind(bind.dn, bind.password);
-		if (!bindResult.ok) {
-			return bindResult;
-		}
+	async getGroup (gid) {
 		const result = await this.#client.search(`cn=${gid},${this.#groupsdn}`, {});
 		result.group = result.entries[0]; // assume there should only be 1 entry
 		return result;
 	}
 
-	async delGroup (bind, gid) {
-		const logger = new LDAP_MULTIOP_LOGGER(`del ${gid}`);
-		const bindResult = await this.#client.bind(bind.dn, bind.password, logger);
-		if (!bindResult.ok) {
-			return bindResult;
-		}
+	async delGroup (gid) {
 		const groupDN = `cn=${gid},${this.#groupsdn}`;
-		await this.#client.del(groupDN, logger);
-		return logger;
+		return await this.#client.del(groupDN);
 	}
 
-	async addUserToGroup (bind, uid, gid) {
-		const logger = new LDAP_MULTIOP_LOGGER(`add ${uid} to ${gid}`);
-		const bindResult = await this.#client.bind(bind.dn, bind.password, logger);
-		if (!bindResult.ok) {
-			return bindResult;
-		}
+	async addUserToGroup (uid, gid) {
 		// add the user
 		const change = new ldap.Change({
 			operation: "add",
@@ -185,16 +135,10 @@ export default class LDAP {
 				values: [`uid=${uid},${this.#peopledn}`]
 			}
 		});
-		await this.#client.modify(`cn=${gid},${this.#groupsdn}`, change, logger);
-		return logger;
+		return await this.#client.modify(`cn=${gid},${this.#groupsdn}`, change);
 	}
 
-	async delUserFromGroup (bind, uid, gid) {
-		const logger = new LDAP_MULTIOP_LOGGER(`del ${uid} from ${gid}`);
-		const bindResult = await this.#client.bind(bind.dn, bind.password, logger);
-		if (!bindResult.ok) {
-			return bindResult;
-		}
+	async delUserFromGroup (uid, gid) {
 		const change = new ldap.Change({
 			operation: "delete",
 			modification: {
@@ -202,8 +146,7 @@ export default class LDAP {
 				values: [`uid=${uid},${this.#peopledn}`]
 			}
 		});
-		await this.#client.modify(`cn=${gid},${this.#groupsdn}`, change, logger);
-		return logger;
+		return await this.#client.modify(`cn=${gid},${this.#groupsdn}`, change);
 	}
 }
 
