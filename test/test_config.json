@@ -3,7 +3,6 @@
     "ldapURL": "ldap://localhost",
     "startTLS": true,
     "basedn": "dc=test,dc=paasldap",
-    "sessionSecretKey": "test",
     "sessionCookieName": "PAASLDAPAuthTicket",
     "sessionCookie": {
         "path": "/",
