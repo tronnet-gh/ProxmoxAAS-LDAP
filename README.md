@@ -34,3 +34,20 @@ ProxmoxAAS LDAP provides a simple API for managing users and groups in a simplif
     - baseDN: base DN ie. `dc=domain,dc=net`
     - sessionSecretKey: random value used to randomize cookie values, replace with any sufficiently large random string
 3. Run the binary
+
+## Building and Testing from Source
+
+Building requires the go toolchain. Testing requires the go toolchain, make, and apt. Currently only supports Debian.
+
+### Building from Source
+
+1. Clone the repository
+2. Run `go get` to get requirements
+3. Run `make` to build the binary
+
+### Testing Source
+
+1. Clone the repository
+2. Run `go get` to get requirements
+3. Run `make dev-init` to install test requirements including openldap (slapd), ldap-utils, debconf-utils
+4. Run `make tests` to run all tests
