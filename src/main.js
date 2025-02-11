@@ -3,24 +3,21 @@ import bodyParser from "body-parser";
 import cookieParser from "cookie-parser";
 import morgan from "morgan";
 import session from "express-session";
-
-import LDAP from "./ldap.js";
-import _config from "./config.js";
-import _package from "./package.js";
-
 import parseArgs from "minimist";
+
+import * as utils from "./utils.js"
+import LDAP from "./ldap.js";
 
 global.argv = parseArgs(process.argv.slice(2), {
 	default: {
 		package: "package.json",
-		listenPort: 8082,
-		ldapURL: "ldap://localhost",
-		configPath: "config/config.json"
+		config: "config/config.json"
 	}
 });
 
-global.package = _package(global.argv.package);
-global.config = _config(global.argv.configPath);
+global.utils = utils;
+global.package = global.utils.readJSONFile(global.argv.package);
+global.config = global.utils.readJSONFile(global.argv.config);
 
 const LDAPSessions = {};
 
@@ -36,8 +33,8 @@ app.use(session({
 	saveUninitialized: true
 }));
 
-app.listen(global.argv.listenPort, () => {
-	console.log(`proxmoxaas-api v${global.package.version} listening on port ${global.argv.listenPort}`);
+app.listen(global.config.listenPort, () => {
+	console.log(`proxmoxaas-ldap v${global.package.version} listening on port ${global.config.listenPort}`);
 });
 
 /**
@@ -66,7 +63,7 @@ app.post("/ticket", async (req, res) => {
 		uid: req.body.uid,
 		password: req.body.password
 	};
-	const newLDAPSession = new LDAP(global.argv.ldapURL, global.config.basedn);
+	const newLDAPSession = new LDAP(global.config.ldapURL, global.config.basedn);
 	const bindResult = await newLDAPSession.bindUser(params.uid, params.password);
 	if (bindResult.ok) {
 		LDAPSessions[req.session.id] = newLDAPSession;
