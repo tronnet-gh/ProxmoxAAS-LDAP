@@ -10,18 +10,29 @@ read -p "Admin User Email: " ADMIN_EMAIL
 read -p "Admin User CN: " ADMIN_CN
 read -p "Admin User SN: " ADMIN_SN
 read -s -p "Admin Password: " ADMIN_PASSWD
+echo ""
+read -s -p "Confirm Password: " CONFIRM_PASSWD
+echo ""
 
-envsubst '$BASE_DN' < auth.template.ldif > auth.ldif
-envsubst '$BASE_DN' < pass.template.ldif > pass.ldif
-envsubst '$BASE_DN:$ADMIN_ID:$ADMIN_EMAIL:$ADMIN_CN:$ADMIN_SN:$ADMIN_PASSWD' < init.template.ldif > init.ldif
+if [ "$ADMIN_PASSWD" = "$CONFIRM_PASSWD" ]; then
 
-sudo ldapmodify -H ldapi:/// -Y EXTERNAL -f auth.ldif
-sudo ldapmodify -H ldapi:/// -Y EXTERNAL -f pass.ldif
-sudo ldapadd -H ldapi:/// -Y EXTERNAL -c -f init.ldif
+    envsubst '$BASE_DN' < auth.template.ldif > auth.ldif
+    envsubst '$BASE_DN' < pass.template.ldif > pass.ldif
+    envsubst '$BASE_DN:$ADMIN_ID:$ADMIN_EMAIL:$ADMIN_CN:$ADMIN_SN:$ADMIN_PASSWD' < init.template.ldif > init.ldif
 
-unset BASE_DN
-unset ADMIN_ID
-unset ADMIN_CN
-unset ADMIN_SN
-unset ADMIN_PASSWD
-rm auth.ldif init.ldif pass.ldif
+    sudo ldapmodify -H ldapi:/// -Y EXTERNAL -f auth.ldif
+    sudo ldapmodify -H ldapi:/// -Y EXTERNAL -f pass.ldif
+    sudo ldapadd -H ldapi:/// -Y EXTERNAL -c -f init.ldif
+
+    unset BASE_DN
+    unset ADMIN_ID
+    unset ADMIN_CN
+    unset ADMIN_SN
+    unset ADMIN_PASSWD
+    rm auth.ldif init.ldif pass.ldif
+
+else 
+
+    echo "Error: Passwords do not match."
+
+fi
