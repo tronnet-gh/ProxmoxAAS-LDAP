@@ -1,7 +1,7 @@
 export BASE_DN=''
 read -p "Base DN: " BASE_DN
 
-export PAAS_PASSWD=$(tr -dc 'A-Za-z0-9!"#$%&'\''()*+,-./:;<=>?@[\]^_`{|}~' </dev/urandom | head -c 256; echo)
+export PAAS_PASSWD=$(tr -dc 'A-Za-z0-9!"#$%&'\''()*+,-./:;<=>?@[\]^_`{|}~' < /dev/urandom | head -c 256; echo)
 echo "$PAAS_PASSWD" -n > paas.token
 echo "Saved PAAS Authentication Token (password) to paas.token"
 
