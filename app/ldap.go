@@ -8,6 +8,7 @@ import (
 	"github.com/go-ldap/ldap/v3"
 )
 
+// LDAPClient wrapper struct containing the connection, baseDN, peopleDN, and groupsDN
 type LDAPClient struct {
 	client   *ldap.Conn
 	basedn   string
@@ -15,6 +16,7 @@ type LDAPClient struct {
 	groupsdn string
 }
 
+// returns a new LDAPClient from the config
 func NewLDAPClient(config Config) (*LDAPClient, error) {
 	LDAPConn, err := ldap.DialURL(config.LdapURL)
 	return &LDAPClient{
@@ -25,6 +27,7 @@ func NewLDAPClient(config Config) (*LDAPClient, error) {
 	}, err
 }
 
+// bind a user using username and password to the LDAPClient
 func (l LDAPClient) BindUser(username string, password string) error {
 	userdn := fmt.Sprintf("uid=%s,%s", username, l.peopledn)
 	return l.client.Bind(userdn, password)
@@ -50,53 +53,14 @@ func (l LDAPClient) GetAllUsers() (int, gin.H) {
 	var results = []gin.H{} // create list of results
 
 	for _, entry := range searchResponse.Entries { // for each result,
-		results = append(results, gin.H{
-			"dn": entry.DN,
-			"attributes": gin.H{
-				"cn":       entry.GetAttributeValue("cn"),
-				"sn":       entry.GetAttributeValue("sn"),
-				"mail":     entry.GetAttributeValue("mail"),
-				"uid":      entry.GetAttributeValue("uid"),
-				"memberOf": entry.GetAttributeValues("memberOf"),
-			},
-		})
+		user := LDAPEntryToLDAPUser(entry)
+		results = append(results, LDAPUserToGin(user))
 	}
 
 	return http.StatusOK, gin.H{
 		"ok":    true,
 		"error": nil,
 		"users": results,
-	}
-}
-
-func (l LDAPClient) AddUser(uid string, user User) (int, gin.H) {
-	if user.CN == "" || user.SN == "" || user.UserPassword == "" {
-		return http.StatusBadRequest, gin.H{
-			"ok":    false,
-			"error": "Missing one of required fields: cn, sn, userpassword",
-		}
-	}
-
-	addRequest := ldap.NewAddRequest(
-		fmt.Sprintf("uid=%s,%s", uid, l.peopledn), // DN
-		nil, // controls
-	)
-	addRequest.Attribute("sn", []string{user.SN})
-	addRequest.Attribute("cn", []string{user.CN})
-	addRequest.Attribute("userPassword", []string{user.CN})
-	addRequest.Attribute("objectClass", []string{"inetOrgPerson"})
-
-	err := l.client.Add(addRequest)
-	if err != nil {
-		return http.StatusBadRequest, gin.H{
-			"ok":    false,
-			"error": err,
-		}
-	}
-
-	return http.StatusOK, gin.H{
-		"ok":    true,
-		"error": nil,
 	}
 }
 
@@ -118,16 +82,9 @@ func (l LDAPClient) GetUser(uid string) (int, gin.H) {
 	}
 
 	entry := searchResponse.Entries[0]
-	result := gin.H{
-		"dn": entry.DN,
-		"attributes": gin.H{
-			"cn":       entry.GetAttributeValue("cn"),
-			"sn":       entry.GetAttributeValue("sn"),
-			"mail":     entry.GetAttributeValue("mail"),
-			"uid":      entry.GetAttributeValue("uid"),
-			"memberOf": entry.GetAttributeValues("memberOf"),
-		},
-	}
+
+	user := LDAPEntryToLDAPUser(entry)
+	result := LDAPUserToGin(user)
 
 	return http.StatusOK, gin.H{
 		"ok":    true,
@@ -136,7 +93,38 @@ func (l LDAPClient) GetUser(uid string) (int, gin.H) {
 	}
 }
 
-func (l LDAPClient) ModUser(uid string, user User) (int, gin.H) {
+func (l LDAPClient) AddUser(uid string, user UserRequired) (int, gin.H) {
+	if user.CN == "" || user.SN == "" || user.UserPassword == "" {
+		return http.StatusBadRequest, gin.H{
+			"ok":    false,
+			"error": "Missing one of required fields: cn, sn, userpassword",
+		}
+	}
+
+	addRequest := ldap.NewAddRequest(
+		fmt.Sprintf("uid=%s,%s", uid, l.peopledn), // DN
+		nil, // controls
+	)
+	addRequest.Attribute("sn", []string{user.SN})
+	addRequest.Attribute("cn", []string{user.CN})
+	addRequest.Attribute("userPassword", []string{user.UserPassword})
+	addRequest.Attribute("objectClass", []string{"inetOrgPerson"})
+
+	err := l.client.Add(addRequest)
+	if err != nil {
+		return http.StatusBadRequest, gin.H{
+			"ok":    false,
+			"error": err,
+		}
+	}
+
+	return http.StatusOK, gin.H{
+		"ok":    true,
+		"error": nil,
+	}
+}
+
+func (l LDAPClient) ModUser(uid string, user UserOptional) (int, gin.H) {
 	if user.CN == "" && user.SN == "" && user.UserPassword == "" {
 		return http.StatusBadRequest, gin.H{
 			"ok":    false,
@@ -216,13 +204,8 @@ func (l LDAPClient) GetAllGroups() (int, gin.H) {
 	var results = []gin.H{} // create list of results
 
 	for _, entry := range searchResponse.Entries { // for each result,
-		results = append(results, gin.H{
-			"dn": entry.DN,
-			"attributes": gin.H{
-				"cn":     entry.GetAttributeValue("cn"),
-				"member": entry.GetAttributeValues("member"),
-			},
-		})
+		group := LDAPEntryToLDAPGroup(entry)
+		results = append(results, LDAPGroupToGin(group))
 	}
 
 	return http.StatusOK, gin.H{
@@ -250,13 +233,8 @@ func (l LDAPClient) GetGroup(gid string) (int, gin.H) {
 	}
 
 	entry := searchResponse.Entries[0]
-	result := gin.H{
-		"dn": entry.DN,
-		"attributes": gin.H{
-			"cn":     entry.GetAttributeValue("cn"),
-			"member": entry.GetAttributeValues("member"),
-		},
-	}
+	group := LDAPEntryToLDAPGroup(entry)
+	result := LDAPGroupToGin(group)
 
 	return http.StatusOK, gin.H{
 		"ok":    true,
