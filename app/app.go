@@ -15,16 +15,18 @@ import (
 )
 
 var LDAPSessions map[string]*LDAPClient
-var APIVersion = "1.0.2"
+var APIVersion = "1.0.3"
 
 func Run() {
 	gob.Register(LDAPClient{})
+
+	log.Printf("Starting ProxmoxAAS-LDAP version %s\n", APIVersion)
 
 	configPath := flag.String("config", "config.json", "path to config.json file")
 	flag.Parse()
 
 	config := GetConfig(*configPath)
-	log.Println("Initialized config from " + *configPath)
+	log.Printf("Read in config from %s\n", *configPath)
 
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.Default()
@@ -36,6 +38,8 @@ func Run() {
 		MaxAge:   config.SessionCookie.MaxAge,
 	})
 	router.Use(sessions.Sessions(config.SessionCookieName, store))
+
+	log.Printf("Started API router and cookie store (Name: %s Params: %+v)\n", config.SessionCookieName, config.SessionCookie)
 
 	LDAPSessions = make(map[string]*LDAPClient)
 
@@ -299,6 +303,8 @@ func Run() {
 		status, res := LDAPSession.DelUserFromGroup(c.Param("userid"), c.Param("groupid"))
 		c.JSON(status, res)
 	})
+
+	log.Printf("Starting LDAP API on port %s\n", strconv.Itoa(config.ListenPort))
 
 	router.Run("0.0.0.0:" + strconv.Itoa(config.ListenPort))
 }

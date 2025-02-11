@@ -94,10 +94,10 @@ func (l LDAPClient) GetUser(uid string) (int, gin.H) {
 }
 
 func (l LDAPClient) AddUser(uid string, user UserRequired) (int, gin.H) {
-	if user.CN == "" || user.SN == "" || user.UserPassword == "" {
+	if user.CN == "" || user.SN == "" || user.UserPassword == "" || user.Mail == "" {
 		return http.StatusBadRequest, gin.H{
 			"ok":    false,
-			"error": "Missing one of required fields: cn, sn, userpassword",
+			"error": "Missing one of required fields: cn, sn, mail, userpassword",
 		}
 	}
 
@@ -107,6 +107,7 @@ func (l LDAPClient) AddUser(uid string, user UserRequired) (int, gin.H) {
 	)
 	addRequest.Attribute("sn", []string{user.SN})
 	addRequest.Attribute("cn", []string{user.CN})
+	addRequest.Attribute("mail", []string{user.Mail})
 	addRequest.Attribute("userPassword", []string{user.UserPassword})
 	addRequest.Attribute("objectClass", []string{"inetOrgPerson"})
 
@@ -125,10 +126,10 @@ func (l LDAPClient) AddUser(uid string, user UserRequired) (int, gin.H) {
 }
 
 func (l LDAPClient) ModUser(uid string, user UserOptional) (int, gin.H) {
-	if user.CN == "" && user.SN == "" && user.UserPassword == "" {
+	if user.CN == "" && user.SN == "" && user.UserPassword == "" && user.Mail == "" {
 		return http.StatusBadRequest, gin.H{
 			"ok":    false,
-			"error": "Requires one of fields: cn, sn, userpassword",
+			"error": "Requires one of fields: cn, sn, mail, userpassword",
 		}
 	}
 
@@ -141,6 +142,9 @@ func (l LDAPClient) ModUser(uid string, user UserOptional) (int, gin.H) {
 	}
 	if user.SN != "" {
 		modifyRequest.Replace("sn", []string{user.SN})
+	}
+	if user.Mail != "" {
+		modifyRequest.Replace("mail", []string{user.Mail})
 	}
 	if user.UserPassword != "" {
 		modifyRequest.Replace("userPassword", []string{user.UserPassword})
