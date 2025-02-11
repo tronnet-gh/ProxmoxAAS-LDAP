@@ -1,4 +1,4 @@
-.PHONY: build test clean dev-init
+.PHONY: build tests clean dev-init dev-reinit
 
 build: clean
 	@echo "======================== Building Binary ======================="
