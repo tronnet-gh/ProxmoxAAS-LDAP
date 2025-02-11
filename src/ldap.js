@@ -17,9 +17,10 @@ export default class LDAP {
 	}
 
 	async addUser (bind, uid, attrs) {
-		const bindResult = await this.#client.bind(bind.dn, bind.password);
-		if (!bindResult.ok) {
-			return bindResult;
+		const logger = new LDAP_MULTIOP_LOGGER(`add ${uid}`);
+		await this.#client.bind(bind.dn, bind.password, logger);
+		if (!logger.ok) {
+			return logger;
 		}
 		const userDN = `uid=${uid},${this.#peopledn}`;
 		const entry = {
@@ -29,8 +30,8 @@ export default class LDAP {
 			uid,
 			userPassword: attrs.userPassword
 		};
-		const addResult = await this.#client.add(userDN, entry);
-		return { op: `add ${uid}`, ok: addResult.ok, error: addResult.error };
+		await this.#client.add(userDN, entry, logger);
+		return logger;
 	}
 
 	async getUser (bind, uid) {
@@ -42,11 +43,11 @@ export default class LDAP {
 	}
 
 	async modUser (bind, uid, newAttrs) {
-		const bindResult = await this.#client.bind(bind.dn, bind.password);
-		if (!bindResult.ok) {
-			return bindResult;
+		const logger = new LDAP_MULTIOP_LOGGER(`modify ${uid}`);
+		await this.#client.bind(bind.dn, bind.password, logger);
+		if (!logger.ok) {
+			return logger;
 		}
-		const subops = [bindResult];
 		for (const attr of ["cn", "sn", "userPassword"]) {
 			if (attr in newAttrs) {
 				const change = new ldap.Change({
@@ -56,27 +57,27 @@ export default class LDAP {
 						values: [newAttrs[attr]]
 					}
 				});
-				subops.push(await this.#client.modify(`uid=${uid},${this.#peopledn}`, change));
+				await this.#client.modify(`uid=${uid},${this.#peopledn}`, change, logger);
 			}
 		}
-		return { op: `modify ${uid}`, ok: !subops.some((e) => !e.ok), error: subops.find((e) => !e.ok) || null, subops };
+		return logger;
 	}
 
 	async delUser (bind, uid) {
-		const bindResult = await this.#client.bind(bind.dn, bind.password);
-		if (!bindResult.ok) {
-			return bindResult;
+		const logger = new LDAP_MULTIOP_LOGGER(`del ${uid}`);
+		await this.#client.bind(bind.dn, bind.password, logger);
+		if (!logger.ok) {
+			return logger;
 		}
 		const userDN = `uid=${uid},${this.#peopledn}`;
-		const delResult = await this.#client.del(userDN);
+		await this.#client.del(userDN, logger);
 		const groups = await this.#client.search(this.#groupsdn, {
 			scope: "one",
 			filter: `(member=uid=${uid},${this.#peopledn})`
-		});
-		if (!groups.ok) {
-			return { op: `del ${uid}`, ok: groups.ok, error: groups.error, subops: [bindResult, delResult, groups]}
+		}, logger);
+		if (!logger.ok) {
+			return logger;
 		}
-		const groupsubops = [];
 		for (const element of groups.entries) {
 			let change = null;
 			if (element.attributes.member.length === 1) {
@@ -97,16 +98,16 @@ export default class LDAP {
 					}
 				});
 			}
-			const delResult = await this.#client.modify(element.dn, change);
-			groupsubops.push(delResult);
+			await this.#client.modify(element.dn, change, logger);
 		}
-		return { op: `del ${uid}`, ok: delResult.ok, error: delResult.error, subops: [bindResult, delResult, groups].concat(groupsubops) };
+		return logger;
 	}
 
 	async addGroup (bind, gid, attrs) {
-		const bindResult = await this.#client.bind(bind.dn, bind.password);
-		if (!bindResult.ok) {
-			return bindResult;
+		const logger = new LDAP_MULTIOP_LOGGER(`add ${gid}`);
+		await this.#client.bind(bind.dn, bind.password, logger);
+		if (!logger.ok) {
+			return logger;
 		}
 		const groupDN = `cn=${gid},${this.#groupsdn}`;
 		const entry = {
@@ -114,8 +115,8 @@ export default class LDAP {
 			member: attrs && attrs.member ? attrs.member : "",
 			cn: gid
 		};
-		const addResult = await this.#client.add(groupDN, entry);
-		return { op: `add ${gid}`, ok: addResult.ok, error: addResult.error, subops: [bindResult, addResult] };
+		await this.#client.add(groupDN, entry, logger);
+		return logger;
 	}
 
 	async getGroup (bind, gid) {
@@ -127,22 +128,24 @@ export default class LDAP {
 	}
 
 	async delGroup (bind, gid) {
-		const bindResult = await this.#client.bind(bind.dn, bind.password);
-		if (!bindResult.ok) {
-			return bindResult;
+		const logger = new LDAP_MULTIOP_LOGGER(`del ${gid}`);
+		await this.#client.bind(bind.dn, bind.password, logger);
+		if (!logger.ok) {
+			return logger;
 		}
 		const groupDN = `cn=${gid},${this.#groupsdn}`;
-		const delResult = await this.#client.del(groupDN);
-		return { op: `del ${gid}`, ok: delResult.ok, error: delResult.error, subops: [bindResult, delResult] };
+		await this.#client.del(groupDN, logger);
+		return logger;
 	}
 
 	async addUserToGroup (bind, uid, gid) {
-		const bindResult = await this.#client.bind(bind.dn, bind.password);
-		if (!bindResult.ok) {
-			return bindResult;
+		const logger = new LDAP_MULTIOP_LOGGER(`add ${uid} to ${gid}`);
+		await this.#client.bind(bind.dn, bind.password, logger);
+		if (!logger.ok) {
+			return logger;
 		}
-		const checkGroupEntry = await this.#client.search(`cn=${gid},${this.#groupsdn}`, {});
-		if (checkGroupEntry.ok) {
+		const checkGroupEntry = await this.#client.search(`cn=${gid},${this.#groupsdn}`, {}, logger);
+		if (logger.ok) {
 			// add the user
 			const change = new ldap.Change({
 				operation: "add",
@@ -151,9 +154,9 @@ export default class LDAP {
 					values: [`uid=${uid},${this.#peopledn}`]
 				}
 			});
-			const addResult = await this.#client.modify(`cn=${gid},${this.#groupsdn}`, change);
-			if (!addResult.ok) {
-				return addResult;
+			await this.#client.modify(`cn=${gid},${this.#groupsdn}`, change, logger);
+			if (!logger.ok) {
+				return logger;
 			}
 			// check if there is a blank entry in the group
 			const groupEntry = checkGroupEntry.entries[0];
@@ -166,20 +169,20 @@ export default class LDAP {
 						values: [""]
 					}
 				});
-				const fixResult = await this.#client.modify(`cn=${gid},${this.#groupsdn}`, change);
-				return { op: `add ${uid} to ${gid}`, ok: addResult.ok && fixResult.ok, error: addResult.error ? addResult.error : fixResult.error, subops: [bindResult, addResult, fixResult] };
+				await this.#client.modify(`cn=${gid},${this.#groupsdn}`, change, logger);
 			}
-			return { op: `add ${uid} to ${gid}`, ok: true, error: null, subops: [bindResult, addResult] };
+			return logger;
 		}
 		else {
-			return { op: `add ${uid} to ${gid}`, ok: false, error: `${gid} does not exist`, subops: [bindResult] };
+			return logger;
 		}
 	}
 
 	async delUserFromGroup (bind, uid, gid) {
-		const bindResult = await this.#client.bind(bind.dn, bind.password);
-		if (!bindResult.ok) {
-			return bindResult;
+		const logger = new LDAP_MULTIOP_LOGGER(`del ${uid} from ${gid}`);
+		await this.#client.bind(bind.dn, bind.password, logger);
+		if (!logger.ok) {
+			return logger;
 		}
 		const change = new ldap.Change({
 			operation: "delete",
@@ -188,12 +191,30 @@ export default class LDAP {
 				values: [`uid=${uid},${this.#peopledn}`]
 			}
 		});
-		const delResult = await this.#client.modify(`cn=${gid},${this.#groupsdn}`, change);
-		return { op: `del ${uid} from ${gid}`, ok: delResult.ok, error: delResult.error, subops: [bindResult, delResult] };
+		await this.#client.modify(`cn=${gid},${this.#groupsdn}`, change, logger);
+		return logger;
 	}
 
-	async search (base, opts) {
-		return await this.#client.search(base, opts);
+	async search (branch, opts) {
+		return await this.#client.search(`${branch},${this.#basedn}`, opts);
+	}
+}
+
+class LDAP_MULTIOP_LOGGER {
+	op = null;
+	ok = true;
+	error = [];
+	subops = [];
+	constructor (op) {
+		this.op = op;
+	}
+
+	push (op) {
+		if (!op.ok) {
+			this.ok = false;
+			this.error.push(op.error);
+		}
+		this.subops.push(op);
 	}
 }
 
@@ -209,86 +230,95 @@ class LDAPJS_CLIENT_ASYNC_WRAPPER {
 		});
 	}
 
-	bind (dn, password) {
+	#parseError (err) {
+		if (err) {
+			return {code: err.code, name: err.name, message: err.message};
+		}
+		else {
+			return null;
+		}
+	}
+
+	bind (dn, password, logger = null) {
 		return new Promise((resolve) => {
 			this.#client.bind(dn, password, (err) => {
-				if (err) {
-					resolve({ op: `bind ${dn}`, ok: false, error: err });
+				const result = { op: `bind ${dn}`, ok: err === null, error: this.#parseError(err) };
+				if (logger) {
+					logger.push(result);
 				}
-				else {
-					resolve({ op: `bind ${dn}`, ok: true, error: null });
-				}
+				resolve(result);
 			});
 		});
 	}
 
-	add (dn, entry) {
+	add (dn, entry, logger = null) {
 		return new Promise((resolve) => {
 			this.#client.add(dn, entry, (err) => {
-				if (err) {
-					resolve({ op: `add ${dn}`, ok: false, error: err });
+				const result = { op: `add ${dn}`, ok: err === null, error: this.#parseError(err) };
+				if (logger) {
+					logger.push(result);
 				}
-				else {
-					resolve({ op: `add ${dn}`, ok: true, error: null });
-				}
+				resolve(result);
 			});
 		});
 	}
 
-	search (base, options) {
+	search (base, options, logger = null) {
 		return new Promise((resolve) => {
 			this.#client.search(base, options, (err, res) => {
 				if (err) {
 					return resolve({ op: `search ${base}`, ok: false, error: err });
 				}
-				const results = { op: `search ${base}`, ok: false, error: null, status: 1, message: "", entries: [] };
+				const result = { op: `search ${base}`, ok: false, error: null, entries: [] };
 				res.on("searchRequest", (searchRequest) => { });
 				res.on("searchEntry", (entry) => {
 					const attributes = {};
 					for (const element of entry.pojo.attributes) {
 						attributes[element.type] = element.values;
 					}
-					results.entries.push({ dn: entry.pojo.objectName, attributes });
+					result.entries.push({ dn: entry.pojo.objectName, attributes });
 				});
 				res.on("searchReference", (referral) => { });
-				res.on("error", (error) => {
-					results.ok = error.status === 0;
-					results.status = error.status;
-					results.message = error.message;
-					resolve(results);
+				res.on("error", (err) => {
+					result.ok = false;
+					result.error = this.#parseError(err);
+					if (logger) {
+						logger.push(result);
+					}
+					resolve(result);
 				});
-				res.on("end", (result) => {
-					results.ok = result.status === 0;
-					results.status = result.status;
-					results.message = result.message;
-					resolve(results);
+				res.on("end", (res) => {
+					result.ok = true;
+					result.error = null;
+					if (logger) {
+						logger.push(result);
+					}
+					resolve(result);
 				});
 			});
 		});
 	}
 
-	modify (name, changes) {
+	modify (name, changes, logger = null) {
 		return new Promise((resolve) => {
 			this.#client.modify(name, changes, (err) => {
-				if (err) {
-					resolve({ op: `modify ${name} ${changes.operation} ${changes.modification.type}`, ok: false, error: err });
+				const result = { op: `modify ${name} ${changes.operation} ${changes.modification.type}`, ok: err === null, error: this.#parseError(err) };
+				if (logger) {
+					logger.push(result);
 				}
-				else {
-					resolve({ op: `modify ${name} ${changes.operation} ${changes.modification.type}`, ok: true, error: null });
-				}
+				resolve(result);
 			});
 		});
 	}
 
-	del (dn) {
+	del (dn, logger = null) {
 		return new Promise((resolve) => {
 			this.#client.del(dn, (err) => {
-				if (err) {
-					resolve({ op: `del ${dn}`, ok: false, error: err });
+				const result = { op: `del ${dn}`, ok: err === null, error: this.#parseError(err) };
+				if (logger) {
+					logger.push(result);
 				}
-				else {
-					resolve({ op: `del ${dn}`, ok: true, error: null });
-				}
+				resolve(result);
 			});
 		});
 	}
