@@ -31,7 +31,7 @@ ProxmoxAAS LDAP provides a simple API for managing users and groups in a simplif
 1. Download `proxmoxaas-ldap` binary and `template.config.json` file from [releases](https://git.tronnet.net/tronnet/ProxmoxAAS-LDAP/releases)
 2. Rename `template.config.json` to `config.json` and modify:
     - listenPort: port for PAAS-LDAP to bind and listen on 
-    - ldapURL: url to the ldap server ie. `ldap://ldap.domain.net`
+    - ldapURL: url to the ldap server ie. `ldap://ldap.local`
     - startTLS: true if backend LDAP supports StartTLS
     - basedn: base DN ie. `dc=domain,dc=net`
     - sessionCookieName: name of the session cookie
