@@ -1,5 +1,7 @@
 # ProxmoxAAS LDAP - Simple REST API for LDAP
 
+PAAS-LDAP will be deprecated in the future. Future deployments will use [user-manager-api](https://git.tronnet.net/tronnet/user-manager-api) instead.
+
 ProxmoxAAS LDAP provides a simple API for managing users and groups in a simplified LDAP server. Expected LDAP configuration can be initialized using [open-ldap-setup](https://git.tronnet.net/tronnet/open-ldap-setup). 
 
 ## Installation
